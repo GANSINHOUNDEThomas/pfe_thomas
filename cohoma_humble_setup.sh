@@ -63,13 +63,17 @@ sudo apt install ros-humble-eigen3-cmake-module
 cd
 mkdir ws
 cd ws/
-mkdir src/
-cd src/
-git clone https://github.com/GANSINHOUNDEThomas/pfe_thomas/tree/pfe_thomas/px4_msgs.git
-git clone https://github.com/GANSINHOUNDEThomas/pfe_thomas/tree/pfe_thomas/joy_py.git
+
+
+#git clone https://github.com/GANSINHOUNDEThomas/pfe_thomas/tree/pfe_thomas/px4_msgs.git
+#git clone https://github.com/GANSINHOUNDEThomas/pfe_thomas/tree/pfe_thomas/joy_py.git
 sudo apt install ros-humble-gazebo-msgs
 sudo apt install ros-humble-gazebo-ros-pkgs
-git clone --recursive https://github.com/GANSINHOUNDEThomas/pfe_thomas/tree/pfe_thomas/px4-ros2-interface-lib.git
+#git clone --recursive https://github.com/GANSINHOUNDEThomas/pfe_thomas/tree/pfe_thomas/px4-ros2-interface-lib.git
+git clone https://github.com/GANSINHOUNDEThomas/pfe_thomas.git
+mv pfe_thomas/ src/
+
+
 
 cd
 echo 'export DISPLAY=:1' >> ~/.bashrc
