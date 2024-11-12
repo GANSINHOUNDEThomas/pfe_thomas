@@ -34,7 +34,7 @@ docker run -it --privileged \
 cd 
 sudo chmod a+w ws/ -R 
 
-cp cohoma_humble_setup.sh ws/ws1  \
+cp cohoma_humble_setup.sh ws/ws1  
 
 
 
