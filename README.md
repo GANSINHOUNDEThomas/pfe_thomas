@@ -1,9 +1,9 @@
-# d'abord pull le docker sur votre machine METTEZ vous à la racine 
+# d'abord télécharger les fichiers suivant à la racine du projet sur votre machine
+cd
 
 curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/blob/pfe_thomas/cohoma_humble_setup.sh.git \
 curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/blob/pfe_thomas/get-docker.sh.git \
 curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/raw/pfe_thomas/cohoma_humble_setup.sh \
-
 
 
 chmod +x cohoma_humble_setup.sh get-docker.sh \
