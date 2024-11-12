@@ -3,19 +3,19 @@ cd
 
 curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/blob/pfe_thomas/cohoma_humble_setup.sh.git \
 curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/blob/pfe_thomas/get-docker.sh.git \
-curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/raw/pfe_thomas/cohoma_humble_setup.sh \
+curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/raw/pfe_thomas/cohoma_humble_setup.sh 
 
 
-chmod +x cohoma_humble_setup.sh get-docker.sh \
+chmod +x cohoma_humble_setup.sh get-docker.sh 
 
 
 
 
 # si vous n'aviez pas encore le docker engine:
-yes | ./get_docker.sh \
+yes | ./get_docker.sh 
 
 # si vous l'aviez déja:
-yes | ./cohoma_run.sh \
+yes | ./cohoma_run.sh 
 
 
 # dans un premier temps, télécharger et copier le script à la racine 
@@ -32,7 +32,7 @@ docker run -it --privileged \
 
 # sur la machine:
 cd 
-sudo chmod a+w ws/ -R \
+sudo chmod a+w ws/ -R 
 
 cp cohoma_humble_setup.sh ws/ws1  \
 
@@ -44,7 +44,7 @@ cd \
 cd ws/ws1/ \
 cp -r cohoma_humble_setup.sh ~/ \
 cd \
-yes | ./cohoma_humble_setup.sh \
+yes | ./cohoma_humble_setup.sh 
 
 
 
@@ -53,7 +53,7 @@ yes | ./cohoma_humble_setup.sh \
 # dans un second terminal : docker exec -it cohoma_humble bash
 cd
 cd PX4-Autopilot/ \
-make px4_sitl gazebo-classic -j$(nproc) \
+make px4_sitl gazebo-classic -j$(nproc) 
 
 # stopper le simulateur avec Ctrl +C 
 
