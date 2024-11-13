@@ -31,6 +31,9 @@
 #include <px4_ros2/odometry/global_position.hpp>
 #include <px4_ros2/odometry/attitude.hpp>
 #include <px4_ros2/odometry/local_position.hpp>
+
+#include <px4_ros2/control/setpoint_types/goto.hpp> // to use goto setpoint types
+
 // #include <px4_ros2/utils/odometry_local_position.hpp>  // Include for OdometryLocalPosition
 #include <cmath> // for fabsf()
 
@@ -71,141 +74,26 @@ sensor_msgs::msg::Joy::SharedPtr global_joy_data;
 
 static const std::string kName = "Autonomous Executor";
 
-float prev_throttle = 0.0;
 
 
-class FlightModeTest : public px4_ros2::ModeBase
-{
-public:
-    explicit FlightModeTest(rclcpp::Node &node)
-    : ModeBase(node, Settings{"My Manual Mode"}),
-    //   _manual_control_input(std::make_shared<px4_ros2::ManualControlInput>(*this)),
-      _rates_setpoint(std::make_shared<px4_ros2::RatesSetpointType>(*this)),
-      _attitude_setpoint(std::make_shared<px4_ros2::AttitudeSetpointType>(*this)),
-      _peripheral_actuator_controls(std::make_shared<px4_ros2::PeripheralActuatorControls>(*this)),
-      _vehicle_local_position(std::make_shared<px4_ros2::OdometryLocalPosition>(*this)),
-      _trajectory_setpoint(std::make_shared<px4_ros2::TrajectorySetpointType>(*this))
-    {}
-
-    void onActivate() override
-    {
-        RCLCPP_INFO(node().get_logger(), "My Manual Mode Test activated.");
-    }
-
-    void onDeactivate() override
-    {
-        RCLCPP_INFO(node().get_logger(), "My Manual Mode Test deactivated.");
-    }
-    
 
 
-    void updateSetpoint(float dt_s) override
-    {
 
-
-        // Get the current position and heading (yaw)
-        // const Eigen::Vector3f current_position = _vehicle_local_position->positionNed();
-        // const float current_yaw = _vehicle_local_position->heading();  // Assuming heading() returns yaw in radians
-        // const float current_yaw_deg = current_yaw * 180.0f / M_PI;  // Convert to degrees
-
-        // // Log the current position and heading
-        // RCLCPP_INFO(node().get_logger(), "Position - X: %.2f, Y: %.2f, Z: %.2f, Heading: %.2f°",
-        //             current_position.x(), current_position.y(), current_position.z(), current_yaw_deg);
-
-        if (!global_joy_data) {
-            RCLCPP_WARN(node().get_logger(), "No joystick data available.");
-            return;
-        }
-
-        if (global_joy_data->axes.size() < 4) {
-            RCLCPP_ERROR(node().get_logger(), "Joystick data does not contain enough axes.");
-            return;
-        }
-
-        // Map joystick axes to control inputs
-        float roll_input = global_joy_data->axes[0];
-        float pitch_input = global_joy_data->axes[1];
-        float yaw_input = -global_joy_data->axes[2];
-        float throttle_input = global_joy_data->axes[3];
-
-        // if (global_joy_data->axes[3]<=0)
-        // {
-        //     throttle_input = 0.0;
-        // } 
-
-        if (throttle_input <= prev_throttle)
-        {
-            throttle_input = prev_throttle;
-        }else
-        {
-            prev_throttle = throttle_input;
-        }
-        
-
-
-        float threshold = 0.5f;
-
-        bool want_rates = fabsf(roll_input) > threshold || fabsf(pitch_input) > threshold || fabsf(throttle_input) > threshold;
-        // bool want_thrust = fabsf(global_joy_data->axes[3]) > threshold;
-        
-        const float yaw_rate = px4_ros2::degToRad(yaw_input * 120.f);
-
-        if (want_rates) {
-            
-            const Eigen::Vector3f rates_sp{
-                px4_ros2::degToRad(roll_input * 250.f),
-                px4_ros2::degToRad(-pitch_input * 250.f),
-                yaw_rate
-            };
-            _rates_setpoint->update(rates_sp, {NAN,NAN,NAN});
-        }
-    
-        else {
-            _yaw += yaw_rate * dt_s;
-            const Eigen::Vector3f thrust_sp{0.f, 0.f, -1.0};
-            const Eigen::Quaternionf qd = px4_ros2::eulerRpyToQuaternion(
-                px4_ros2::degToRad(roll_input * 55.f),
-                px4_ros2::degToRad(-pitch_input * 55.f),
-                _yaw
-            );
-            _attitude_setpoint->update(qd, {NAN,NAN,NAN}, yaw_rate);
-            // _trajectory_setpoint->update(thrust_sp);
-        }
-        _trajectory_setpoint->update(thrust_sp);
-        // // Control a servo by passing through RC aux1 channel to 'Peripheral Actuator Set 1'
-        // _peripheral_actuator_controls->set(1.0); // Assumes aux1 on button[4]
-    }
-
-private:
-        //         _yaw
-        //     );
-        //     _attitude_setpoint->update(qd, thrust_sp, yaw_rate);
-    // std::shared_ptr<px4_ros2::ManualControlInput> _manual_control_input;
-    std::shared_ptr<px4_ros2::RatesSetpointType> _rates_setpoint;
-    std::shared_ptr<px4_ros2::AttitudeSetpointType> _attitude_setpoint;
-    std::shared_ptr<px4_ros2::PeripheralActuatorControls> _peripheral_actuator_controls;
-    std::shared_ptr<px4_ros2::OdometryLocalPosition> _vehicle_local_position;
-    std::shared_ptr<px4_ros2::TrajectorySetpointType> _trajectory_setpoint;
-    float _yaw{0.f};
-};
 
 // class FlightModeTest : public px4_ros2::ModeBase
 // {
 // public:
 //     explicit FlightModeTest(rclcpp::Node &node)
 //     : ModeBase(node, Settings{"My Manual Mode"}),
+//     //   _manual_control_input(std::make_shared<px4_ros2::ManualControlInput>(*this)),
 //       _rates_setpoint(std::make_shared<px4_ros2::RatesSetpointType>(*this)),
 //       _attitude_setpoint(std::make_shared<px4_ros2::AttitudeSetpointType>(*this)),
-//       _peripheral_actuator_controls(std::make_shared<px4_ros2::PeripheralActuatorControls>(*this)),
-//       _vehicle_local_position(std::make_shared<px4_ros2::OdometryLocalPosition>(*this)),
-//       _trajectory_setpoint(std::make_shared<px4_ros2::TrajectorySetpointType>(*this))
+//       _peripheral_actuator_controls(std::make_shared<px4_ros2::PeripheralActuatorControls>(*this))
 //     {}
 
 //     void onActivate() override
 //     {
 //         RCLCPP_INFO(node().get_logger(), "My Manual Mode Test activated.");
-//         // Capture the initial altitude to hold when joystick throttle is neutral
-//         _hold_altitude = _vehicle_local_position->positionNed().z();
 //     }
 
 //     void onDeactivate() override
@@ -226,41 +114,17 @@ private:
 //         }
 
 //         // Map joystick axes to control inputs
-//         float roll_input = global_joy_data->axes[0];
-//         float pitch_input = global_joy_data->axes[1];
-//         float yaw_input = global_joy_data->axes[2];
-//         float throttle_input = global_joy_data->axes[3];
-        
+//         float roll_input = global_joy_data->axes[2];
+//         float pitch_input = global_joy_data->axes[3];
+//         float yaw_input = global_joy_data->axes[0];
+//         float throttle_input = global_joy_data->axes[1];
 
 //         const float threshold = 0.5f;
-//         const bool want_rates = fabsf(roll_input) > threshold || fabsf(pitch_input) > threshold;
+//         const bool want_attitude = fabsf(roll_input) > threshold || fabsf(pitch_input) > threshold;
+
 //         const float yaw_rate = px4_ros2::degToRad(yaw_input * 120.f);
-//         const float current_yaw = _vehicle_local_position->heading();  // Assuming heading() gives yaw in radians
-//         const float current_yaw_deg = current_yaw * 180.0f / M_PI; 
 
-//         // Use the vehicle's last known position
-//         const Eigen::Vector3f current_position = _vehicle_local_position->positionNed();
-
-//         if (fabsf(throttle_input) < 0.1f) {
-//             // Throttle is neutral; hold the drone at the current altitude
-//             Eigen::Vector3f hold_position = current_position;
-//             hold_position.z() = _hold_altitude;
-
-//             _trajectory_setpoint->updatePosition(hold_position);
-//             _trajectory_setpoint->update({}, {}, {}, yaw_rate);  // Keep current yaw rate
-
-//         } else if (want_rates) {
-//             // Adjust rate and thrust if roll/pitch input crosses threshold
-//             const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
-//             const Eigen::Vector3f rates_sp{
-//                 px4_ros2::degToRad(roll_input * 500.f),
-//                 px4_ros2::degToRad(-pitch_input * 500.f),
-//                 yaw_rate
-//             };
-//             _rates_setpoint->update(rates_sp, thrust_sp);
-
-//         } else {
-//             // Use attitude setpoint for minimal adjustments
+//         if (want_attitude) {
 //             _yaw += yaw_rate * dt_s;
 //             const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
 //             const Eigen::Quaternionf qd = px4_ros2::eulerRpyToQuaternion(
@@ -272,22 +136,181 @@ private:
 //         }
 
 //         // Control a servo by passing through RC aux1 channel to 'Peripheral Actuator Set 1'
-//         // _peripheral_actuator_controls->set(0.0); // Assumes aux1 on button[4]
-//         // Print the current global position and heading
-//         RCLCPP_INFO(node().get_logger(), "Position - X: %.2f, Y: %.2f, Z: %.2f, Heading: %.2f°",
-//                     current_position.x(), current_position.y(), current_position.z(), current_yaw_deg);
+//         _peripheral_actuator_controls->set(0); // Assumes aux1 on button[4]
 //     }
 
-// private:
+// private: 
+//     // std::shared_ptr<px4_ros2::ManualControlInput> _manual_control_input;
 //     std::shared_ptr<px4_ros2::RatesSetpointType> _rates_setpoint;
 //     std::shared_ptr<px4_ros2::AttitudeSetpointType> _attitude_setpoint;
 //     std::shared_ptr<px4_ros2::PeripheralActuatorControls> _peripheral_actuator_controls;
-//     std::shared_ptr<px4_ros2::OdometryLocalPosition> _vehicle_local_position;
-//     std::shared_ptr<px4_ros2::TrajectorySetpointType> _trajectory_setpoint;
 //     float _yaw{0.f};
-//     float _hold_altitude{0.f};  // Holds the altitude to maintain when throttle is neutral
 // };
 
+class FlightModeTest : public px4_ros2::ModeBase
+{
+public:
+    explicit FlightModeTest(rclcpp::Node &node)
+    : ModeBase(node, Settings{"My Manual Mode"}),
+    //   _manual_control_input(std::make_shared<px4_ros2::ManualControlInput>(*this)),
+      _rates_setpoint(std::make_shared<px4_ros2::RatesSetpointType>(*this)),
+      _attitude_setpoint(std::make_shared<px4_ros2::AttitudeSetpointType>(*this)),
+      _peripheral_actuator_controls(std::make_shared<px4_ros2::PeripheralActuatorControls>(*this))
+    {}
+
+    void onActivate() override
+    {
+        RCLCPP_INFO(node().get_logger(), "My Manual Mode Test activated.");
+    }
+
+    void onDeactivate() override
+    {
+        RCLCPP_INFO(node().get_logger(), "My Manual Mode Test deactivated.");
+    }
+
+    void updateSetpoint(float dt_s) override
+    {
+        if (!global_joy_data) {
+            RCLCPP_WARN(node().get_logger(), "No joystick data available.");
+            return;
+        }
+
+        if (global_joy_data->axes.size() < 4) {
+            RCLCPP_ERROR(node().get_logger(), "Joystick data does not contain enough axes.");
+            return;
+        }
+
+        // Map joystick axes to control inputs
+        float roll_input = -global_joy_data->axes[2];
+        float pitch_input = global_joy_data->axes[3];
+        float yaw_input = -global_joy_data->axes[0]; 
+        float throttle_input = global_joy_data->axes[1];
+
+        const float threshold = 0.2f;
+        const bool want_rates = fabsf(roll_input) > threshold || fabsf(pitch_input) > threshold;
+
+        const float yaw_rate = px4_ros2::degToRad(yaw_input * 120.f);
+        
+        if (want_rates) {
+            const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
+            const Eigen::Vector3f rates_sp{
+                px4_ros2::degToRad(roll_input * 50.f),
+                px4_ros2::degToRad(-pitch_input * 50.f),
+                yaw_rate
+            };
+            _rates_setpoint->update(rates_sp, thrust_sp);
+        } else {
+            _yaw += yaw_rate * dt_s;
+            const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
+            const Eigen::Quaternionf qd = px4_ros2::eulerRpyToQuaternion(
+                px4_ros2::degToRad(roll_input * 55.f),
+                px4_ros2::degToRad(-pitch_input * 55.f),
+                _yaw
+            );
+            _attitude_setpoint->update(qd, thrust_sp, yaw_rate);
+        }
+
+        // Control a servo by passing through RC aux1 channel to 'Peripheral Actuator Set 1'
+        _peripheral_actuator_controls->set(0); // Assumes aux1 on button[4]
+    }
+
+private:
+    // std::shared_ptr<px4_ros2::ManualControlInput> _manual_control_input;
+    std::shared_ptr<px4_ros2::RatesSetpointType> _rates_setpoint;
+    std::shared_ptr<px4_ros2::AttitudeSetpointType> _attitude_setpoint;
+    std::shared_ptr<px4_ros2::PeripheralActuatorControls> _peripheral_actuator_controls;
+    float _yaw{0.f};
+};
+
+
+// // class FlightModeTest : public px4_ros2::ModeBase
+// // {
+// // public:
+// //     explicit FlightModeTest(rclcpp::Node &node)
+// //     : ModeBase(node, Settings{"My Manual Mode"}),
+// //       _rates_setpoint(std::make_shared<px4_ros2::RatesSetpointType>(*this)),
+// //       _peripheral_actuator_controls(std::make_shared<px4_ros2::PeripheralActuatorControls>(*this)),
+// //       _vehicle_local_position(std::make_shared<px4_ros2::OdometryLocalPosition>(*this))
+      
+// //     {
+// //         _goto_setpoint = std::make_shared<px4_ros2::GotoSetpointType>(*this);
+// //     }
+
+// //     void onActivate() override
+// //     {
+// //         RCLCPP_INFO(node().get_logger(), "My Manual Mode Test activated.");
+// //         // Initialize altitude hold to the current altitude when activated
+// //         _hold_altitude = _vehicle_local_position->positionNed().z();
+// //     }
+
+// //     void onDeactivate() override
+// //     {
+// //         RCLCPP_INFO(node().get_logger(), "My Manual Mode Test deactivated.");
+// //     }
+
+// //     void updateSetpoint(float dt_s) override
+// //     {
+// //         if (!global_joy_data) {
+// //             RCLCPP_WARN(node().get_logger(), "No joystick data available.");
+// //             return;
+// //         }
+
+// //         if (global_joy_data->axes.size() < 4) {
+// //             RCLCPP_ERROR(node().get_logger(), "Joystick data does not contain enough axes.");
+// //             return;
+// //         }
+
+// //         // // Map joystick axes to control inputs, normalize throttle to [0, 1]
+// //         float roll_input = global_joy_data->axes[0];
+// //         float pitch_input = global_joy_data->axes[1];
+// //         float yaw_input = -global_joy_data->axes[2];
+// //         float throttle_input = (global_joy_data->axes[3] + 1.0f) / 2.0f;  // Normalize to [0, 1]
+
+// //         // const float current_altitude = _vehicle_local_position->positionNed().z();
+// //         // const float altitude_error = _hold_altitude - current_altitude;
+// //         // const float throttle_dead_zone = 0.05f;
+
+// //         // if ( )
+
+// //         // // Altitude hold logic
+// //         // float altitude_hold_thrust = 0.5f;  // Baseline thrust for hover, adjust as necessary
+
+// //         // // Adjust thrust to correct for altitude error if throttle is in the dead zone
+// //         // if (fabsf(throttle_input - 0.5f) < throttle_dead_zone) {
+// //         //     altitude_hold_thrust += altitude_error * _altitude_gain;  // P-gain for altitude control
+// //         //     altitude_hold_thrust = std::clamp(altitude_hold_thrust, 0.0f, 1.0f);  // Limit thrust to [0, 1]
+// //         // } else {
+// //         //     // If throttle input is outside the dead zone, allow user to control altitude
+// //         //     altitude_hold_thrust = throttle_input;
+// //         //     _hold_altitude = current_altitude;  // Update hold altitude when user adjusts throttle
+// //         // }
+
+// //         // // Convert joystick inputs to rate setpoints
+// //         // const Eigen::Vector3f rates_sp{
+// //         //     px4_ros2::degToRad(roll_input * 200.f),   // Roll rate
+// //         //     px4_ros2::degToRad(-pitch_input * 200.f), // Pitch rate
+// //         //     px4_ros2::degToRad(yaw_input * 100.f)     // Yaw rate
+// //         // };
+
+// //         // // Update rates setpoint with computed altitude hold thrust
+// //         // Eigen::Vector3f thrust_sp{0.0f, 0.0f, -altitude_hold_thrust};
+// //         // _rates_setpoint->update(rates_sp, thrust_sp);
+
+// //         // Optional logging for debugging
+// //         // RCLCPP_INFO(node().get_logger(), "Position - Altitude: %.2f, Hold Altitude: %.2f, Altitude Error: %.2f, Thrust: %.2f",
+// //         //             current_altitude, _hold_altitude, altitude_error, altitude_hold_thrust);
+
+// //         // _peripheral_actuator_con/trols->set(1);
+// //     }
+
+// // private:
+// //     std::shared_ptr<px4_ros2::RatesSetpointType> _rates_setpoint;
+// //     std::shared_ptr<px4_ros2::PeripheralActuatorControls> _peripheral_actuator_controls;
+// //     std::shared_ptr<px4_ros2::OdometryLocalPosition> _vehicle_local_position;
+// //     std::shared_ptr<px4_ros2::GotoSetpointType> _goto_setpoint;
+// //     // float _hold_altitude{0.f};        // Altitude to hold when throttle is neutral
+// //     // float _altitude_gain{0.3f};       // Proportional gain for altitude hold
+// // };
 
 
 class ModeExecutorTest : public px4_ros2::ModeExecutorBase
@@ -525,7 +548,15 @@ void joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
     manual_setpoint->yaw = msg->axes[2];     // Yaw rotation
     manual_setpoint->throttle = msg->axes[3]; // Throttle (up/down)
 
-    manual_setpoint->sticks_moving = true;// set to true only if any axes is differents from 0 else set to false
+    if (!(msg->axes.empty()))
+    {
+        manual_setpoint->sticks_moving = true;
+    }
+    else {
+        manual_setpoint->sticks_moving = false;
+    }
+    
+    
     manual_setpoint->valid = true;
     manual_setpoint->timestamp = _node.get_clock()->now().nanoseconds() / 1000; // Timestamp in microseconds
 
