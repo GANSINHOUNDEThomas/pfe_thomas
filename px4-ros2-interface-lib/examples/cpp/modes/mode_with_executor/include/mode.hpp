@@ -77,82 +77,13 @@ static const std::string kName = "Autonomous Executor";
 
 
 
-
-
-
-// class FlightModeTest : public px4_ros2::ModeBase
-// {
-// public:
-//     explicit FlightModeTest(rclcpp::Node &node)
-//     : ModeBase(node, Settings{"My Manual Mode"}),
-//     //   _manual_control_input(std::make_shared<px4_ros2::ManualControlInput>(*this)),
-//       _rates_setpoint(std::make_shared<px4_ros2::RatesSetpointType>(*this)),
-//       _attitude_setpoint(std::make_shared<px4_ros2::AttitudeSetpointType>(*this)),
-//       _peripheral_actuator_controls(std::make_shared<px4_ros2::PeripheralActuatorControls>(*this))
-//     {}
-
-//     void onActivate() override
-//     {
-//         RCLCPP_INFO(node().get_logger(), "My Manual Mode Test activated.");
-//     }
-
-//     void onDeactivate() override
-//     {
-//         RCLCPP_INFO(node().get_logger(), "My Manual Mode Test deactivated.");
-//     }
-
-//     void updateSetpoint(float dt_s) override
-//     {
-//         if (!global_joy_data) {
-//             RCLCPP_WARN(node().get_logger(), "No joystick data available.");
-//             return;
-//         }
-
-//         if (global_joy_data->axes.size() < 4) {
-//             RCLCPP_ERROR(node().get_logger(), "Joystick data does not contain enough axes.");
-//             return;
-//         }
-
-//         // Map joystick axes to control inputs
-//         float roll_input = global_joy_data->axes[2];
-//         float pitch_input = global_joy_data->axes[3];
-//         float yaw_input = global_joy_data->axes[0];
-//         float throttle_input = global_joy_data->axes[1];
-
-//         const float threshold = 0.5f;
-//         const bool want_attitude = fabsf(roll_input) > threshold || fabsf(pitch_input) > threshold;
-
-//         const float yaw_rate = px4_ros2::degToRad(yaw_input * 120.f);
-
-//         if (want_attitude) {
-//             _yaw += yaw_rate * dt_s;
-//             const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
-//             const Eigen::Quaternionf qd = px4_ros2::eulerRpyToQuaternion(
-//                 px4_ros2::degToRad(roll_input * 55.f),
-//                 px4_ros2::degToRad(-pitch_input * 55.f),
-//                 _yaw
-//             );
-//             _attitude_setpoint->update(qd, thrust_sp, yaw_rate);
-//         }
-
-//         // Control a servo by passing through RC aux1 channel to 'Peripheral Actuator Set 1'
-//         _peripheral_actuator_controls->set(0); // Assumes aux1 on button[4]
-//     }
-
-// private: 
-//     // std::shared_ptr<px4_ros2::ManualControlInput> _manual_control_input;
-//     std::shared_ptr<px4_ros2::RatesSetpointType> _rates_setpoint;
-//     std::shared_ptr<px4_ros2::AttitudeSetpointType> _attitude_setpoint;
-//     std::shared_ptr<px4_ros2::PeripheralActuatorControls> _peripheral_actuator_controls;
-//     float _yaw{0.f};
-// };
+float prev_throttle = 0.0;
 
 class FlightModeTest : public px4_ros2::ModeBase
 {
 public:
     explicit FlightModeTest(rclcpp::Node &node)
     : ModeBase(node, Settings{"My Manual Mode"}),
-    //   _manual_control_input(std::make_shared<px4_ros2::ManualControlInput>(*this)),
       _rates_setpoint(std::make_shared<px4_ros2::RatesSetpointType>(*this)),
       _attitude_setpoint(std::make_shared<px4_ros2::AttitudeSetpointType>(*this)),
       _peripheral_actuator_controls(std::make_shared<px4_ros2::PeripheralActuatorControls>(*this))
@@ -183,15 +114,30 @@ public:
         // Map joystick axes to control inputs
         float roll_input = -global_joy_data->axes[2];
         float pitch_input = global_joy_data->axes[3];
-        float yaw_input = -global_joy_data->axes[0]; 
-        float throttle_input = global_joy_data->axes[1];
+        float yaw_input = -global_joy_data->axes[0];
+        float throttle_input = global_joy_data->axes[1]; 
+        // float throttle_input = ((global_joy_data->axes[1] +1)/2.f); // normalized between 0 and 1 
+        
+        const float throttle_deadzone = 0.2;
 
         const float threshold = 0.2f;
         const bool want_rates = fabsf(roll_input) > threshold || fabsf(pitch_input) > threshold;
 
         const float yaw_rate = px4_ros2::degToRad(yaw_input * 120.f);
+
+
+        // if (global_joy_data->sticks_moving)
+        // {
+
+        // }
         
-        if (want_rates) {
+
+        if (throttle_input <= throttle_deadzone)
+        {
+            // do nothing
+            throttle_input = prev_throttle;
+        }else{
+            if (want_rates) {
             const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
             const Eigen::Vector3f rates_sp{
                 px4_ros2::degToRad(roll_input * 50.f),
@@ -199,29 +145,30 @@ public:
                 yaw_rate
             };
             _rates_setpoint->update(rates_sp, thrust_sp);
-        } else {
-            _yaw += yaw_rate * dt_s;
-            const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
-            const Eigen::Quaternionf qd = px4_ros2::eulerRpyToQuaternion(
-                px4_ros2::degToRad(roll_input * 55.f),
-                px4_ros2::degToRad(-pitch_input * 55.f),
-                _yaw
-            );
-            _attitude_setpoint->update(qd, thrust_sp, yaw_rate);
+            } else {
+                _yaw += yaw_rate * dt_s;
+                const Eigen::Vector3f thrust_sp{0.f, 0.f, -throttle_input};
+                const Eigen::Quaternionf qd = px4_ros2::eulerRpyToQuaternion(
+                    px4_ros2::degToRad(roll_input * 55.f),
+                    px4_ros2::degToRad(-pitch_input * 55.f),
+                    _yaw
+                );
+                _attitude_setpoint->update(qd, thrust_sp, yaw_rate);
+            }
+            prev_throttle = throttle_input;
         }
+
 
         // Control a servo by passing through RC aux1 channel to 'Peripheral Actuator Set 1'
         _peripheral_actuator_controls->set(0); // Assumes aux1 on button[4]
     }
 
 private:
-    // std::shared_ptr<px4_ros2::ManualControlInput> _manual_control_input;
     std::shared_ptr<px4_ros2::RatesSetpointType> _rates_setpoint;
     std::shared_ptr<px4_ros2::AttitudeSetpointType> _attitude_setpoint;
     std::shared_ptr<px4_ros2::PeripheralActuatorControls> _peripheral_actuator_controls;
     float _yaw{0.f};
 };
-
 
 // // class FlightModeTest : public px4_ros2::ModeBase
 // // {

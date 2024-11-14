@@ -7,13 +7,14 @@ cd
 #git clone https://github.com/PX4/PX4-Autopilot.git --recursive
 git clone --recursive https://github.com/PX4/PX4-Autopilot.git
 cd PX4-Autopilot
-git checkout gda8827883f
+git checkout v1.15.0-beta1-703-gda8827883f
 
+cd
 bash ./PX4-Autopilot/Tools/setup/ubuntu.sh
 cd PX4-Autopilot/
 make px4_sitl -j$(nproc)
 sudo apt remove gz-harmonic
-sudo apt install aptitude
+#sudo apt install aptitude
 sudo aptitude install gazebo libgazebo11 libgazebo-dev
 #make px4_sitl gazebo-classic -j$(nproc)
 
@@ -73,12 +74,18 @@ sudo apt install ros-humble-gazebo-ros-pkgs
 git clone https://github.com/GANSINHOUNDEThomas/pfe_thomas.git
 mv pfe_thomas/ src/
 
+source /opt/ros/humble/setup.bash
+colcon build
+source install/setup.bash
 
 
 cd
-echo 'export DISPLAY=:1' >> ~/.bashrc
-echo 'export DRI_PRIME=1' >> ~/.bashrc
-source ~/.bashrc
+cd PX4-Autopilot/
+make px4_sitl gazebo-classic_x500
+
+
+
+
 
 
 
