@@ -41,7 +41,7 @@ cp cohoma_humble_setup.sh ws/ws1
 
 # revenez dans le docker 
 cd \
-cd ws/ws1/ \
+cd ws/ \
 cp -r cohoma_humble_setup.sh ~/ \
 cd \
 yes | ./cohoma_humble_setup.sh 
