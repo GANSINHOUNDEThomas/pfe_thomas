@@ -106,8 +106,9 @@ git checkout v1.15.0-beta1-703-gda8827883f
 
 cd \
 bash ./PX4-Autopilot/Tools/setup/ubuntu.sh \
-cd PX4-Autopilot/
-make px4_sitl -j$(nproc) \
+cd PX4-Autopilot/ \
+make px4_sitl -j$(nproc)\
+### pensez à saisir y puis valider avec ENTREE  pour accepter les modifications
 sudo apt remove gz-harmonic \
 sudo install gazebo libgazebo11 libgazebo-dev \
 ./add_gazebo-classic_x500.sh /root
