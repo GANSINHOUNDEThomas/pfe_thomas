@@ -20,7 +20,7 @@ source ~/.bashrc
 
 # ensuite ouvrez un autre terminal sur la machine:
 cd \
-sudo chmod a+w ws/ -R \
+sudo chmod a+w ws/ -R 
 
 cp cohoma_humble_setup.sh ws/ws1  
 
@@ -54,20 +54,20 @@ source install/setup.bash
 d'abord fermez le docker avec une commande exit dans le terminal principal (premier terminal lancé lors de la connexion au docker
 ## CONNECTER LA MANETTE PS4 par bluetooth avant de lancer le docker (IMPORTANT)
 ## Relancer à nouveau le docker
-docker start -i cohoma_humble \
+docker start -i cohoma_humble 
 
 cd \
 cd PX4-Autopilot/ \
 make px4_sitl gazebo-classic_x500
 
 ## dans un second terminal :
-MicroXRCEAgent udp4 -p 8888 \
+MicroXRCEAgent udp4 -p 8888 
 
-## dans un 3 ième terminal ( :
+## dans un 3 ième terminal (lancer le script de la manette ps4) :
 cd \
 cd ws/ 
 source install/setup.bash \
-ros2 run joy joy_node \
+ros2 run joy joy_node 
 
 ## dans un 4 ième terminal :
 cd \
@@ -82,15 +82,15 @@ ARM: appuyer sur carré \
 DECOLLER : appuyez sur carré et X simultanément \
 TRIANGLE : mode manuel (My_Manual_Mode) (il est accro pour le moment) il s'agit d'un raccourci mais vous pouvez aussi \
 L1 (left ) ou R1 (right ) pour naviger dans la liste des différents états de navigation 
-appuyer sur X pour confirmer. \
-Pour l'instant, évitez de choisir le mode "Manual" \
+appuyer sur X pour confirmer. 
+Pour l'instant, évitez de choisir le mode "Manual" 
 
 Le mode RTL permet de retourner à la position de décollage
 Le mode Hold pour le maintenir en l'air
 
 
 
-ROND : pour atterir, le véhicule de DISARM tout seul \
+ROND : pour atterir, le véhicule de DISARM tout seul 
 
 Pour l'instant je n'arrive pas à utiliser les modes manuels par défaut (Position stabilized ou accro)
 mais j'y travaille le mode position. \
@@ -102,7 +102,7 @@ Il sera bientôt disponible donc: stay tuned.
 cd \
 git clone --recursive https://github.com/PX4/PX4-Autopilot.git \
 cd PX4-Autopilot \
-git checkout v1.15.0-beta1-703-gda8827883f \
+git checkout v1.15.0-beta1-703-gda8827883f 
 
 cd \
 bash ./PX4-Autopilot/Tools/setup/ubuntu.sh \
