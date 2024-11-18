@@ -3,8 +3,8 @@ cd
 
 curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/blob/pfe_thomas/cohoma_humble_setup.sh.git \
 curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/blob/pfe_thomas/get-docker.sh.git \
-curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/raw/pfe_thomas/cohoma_humble_setup.sh 
-
+curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/raw/pfe_thomas/cohoma_humble_setup.sh \
+curl -O https://github.com/GANSINHOUNDEThomas/pfe_thomas/raw/pfe_thomas/cohoma_run.sh
 
 chmod +x cohoma_humble_setup.sh get-docker.sh 
 
