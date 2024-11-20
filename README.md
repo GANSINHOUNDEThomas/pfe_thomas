@@ -61,15 +61,19 @@ cd PX4-Autopilot/ \
 make px4_sitl gazebo-classic_x500
 
 ## dans un second terminal :
+docker exec -it cohoma_humble bash \
+cd
 MicroXRCEAgent udp4 -p 8888 
 
 ## dans un 3 ième terminal (lancer le script de la manette ps4) :
+docker exec -it cohoma_humble bash \
 cd \
 cd ws/ 
 source install/setup.bash \
 ros2 run joy joy_node 
 
 ## dans un 4 ième terminal :
+docker exec -it cohoma_humble bash \
 cd \
 cd ws/ 
 source install/setup.bash \
