@@ -12,6 +12,7 @@ git checkout v1.15.0-beta1-703-gda8827883f
 cd
 bash ./PX4-Autopilot/Tools/setup/ubuntu.sh
 cd PX4-Autopilot/
+pip install symforce
 make px4_sitl -j$(nproc) --quiet
 sudo apt remove gz-harmonic
 #sudo apt install aptitude
