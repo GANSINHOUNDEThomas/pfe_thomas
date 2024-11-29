@@ -5,6 +5,8 @@ curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thom
 curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thomas/cohoma_humble_setup.sh \
 curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thomas/cohoma_run.sh 
 
+curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thomas/x500.sdf
+
 chmod +x cohoma_humble_setup.sh get-docker.sh cohoma_run.sh 
 
 
@@ -114,8 +116,16 @@ cd PX4-Autopilot/ \
 make px4_sitl -j$(nproc)\
 ### pensez à saisir y puis valider avec ENTREE  pour accepter les modifications
 sudo apt remove gz-harmonic \
-sudo install gazebo libgazebo11 libgazebo-dev \
+sudo apt install gazebo libgazebo11 libgazebo-dev \
+cd 
+cd gazebo-classic_x500
 ./add_gazebo-classic_x500.sh /root
+
+cd
+cp x500.sdf /root/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/x500
+
+
+
 
 #FIN
 

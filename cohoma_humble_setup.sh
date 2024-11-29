@@ -29,6 +29,10 @@ cd gazebo-classic_x500
 chmod +x add_gazebo-classic_x500.sh
 ./add_gazebo-classic_x500.sh /root
 
+cd
+cp x500.sdf /root/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/x500 
+
+
 
 cd
 #git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
