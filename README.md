@@ -3,9 +3,9 @@ cd
 
 curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thomas/get-docker.sh \
 curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thomas/cohoma_humble_setup.sh \
-curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thomas/cohoma_run.sh \
+curl -O https://raw.githubusercontent.com/GANSINHOUNDEThomas/pfe_thomas/pfe_thomas/cohoma_run.sh 
 
-chmod +x cohoma_humble_setup.sh get-docker.sh 
+chmod +x cohoma_humble_setup.sh get-docker.sh cohoma_run.sh 
 
 
 # si vous n'aviez pas encore le docker engine:
