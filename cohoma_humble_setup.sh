@@ -15,7 +15,7 @@ cd PX4-Autopilot/
 make px4_sitl -j$(nproc) --quiet
 sudo apt remove gz-harmonic
 #sudo apt install aptitude
-sudo aptitude install gazebo libgazebo11 libgazebo-dev
+sudo apt install gazebo libgazebo11 libgazebo-dev
 #make px4_sitl gazebo-classic -j$(nproc)
 
 cd 
