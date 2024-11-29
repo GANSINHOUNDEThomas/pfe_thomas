@@ -117,11 +117,11 @@ make px4_sitl -j$(nproc)\
 ### pensez à saisir y puis valider avec ENTREE  pour accepter les modifications
 sudo apt remove gz-harmonic \
 sudo apt install gazebo libgazebo11 libgazebo-dev \
-cd 
-cd gazebo-classic_x500
+cd \
+cd gazebo-classic_x500 \
 ./add_gazebo-classic_x500.sh /root
 
-cd
+cd \
 cp x500.sdf /root/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/x500
 
 
