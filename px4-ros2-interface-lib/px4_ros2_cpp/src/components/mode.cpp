@@ -201,7 +201,7 @@ void ModeBase::onAboutToRegister()
         for (auto & setpoint_type : _setpoint_types) {
           if (setpoint_type.get() == setpoint) {
             activateSetpointType(*setpoint);
-            // commenté par moi
+            // commenté par moi 
             // RCLCPP_DEBUG(
             //   node().get_logger(), "Mode '%s': changing setpoint type",
             //   _registration->name().c_str());

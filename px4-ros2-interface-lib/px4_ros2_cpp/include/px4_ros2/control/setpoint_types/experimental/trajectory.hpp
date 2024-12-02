@@ -46,6 +46,10 @@ public:
   void updatePosition(
     const Eigen::Vector3f & position_ned_m);
 
+  
+void updatePosition_and_yaw(
+  const Eigen::Vector3f & position_ned_m, float yaw_ned_rad);  // ajouté par moi
+
 private:
   rclcpp::Node & _node;
   rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr _trajectory_setpoint_pub;

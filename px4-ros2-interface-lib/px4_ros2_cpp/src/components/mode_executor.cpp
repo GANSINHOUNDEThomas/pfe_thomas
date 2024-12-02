@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause
  ****************************************************************************/
 
-#define VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED   1   // 0b00000001 - Reserved for future use.
 #define VEHICLE_MODE_FLAG_TEST_ENABLED          2   // 0b00000010 - System has a test mode enabled. Intended for temporary system tests.
 #define VEHICLE_MODE_FLAG_AUTO_ENABLED          4   // 0b00000100 - Autonomous mode enabled. System finds its own goal positions.
 #define VEHICLE_MODE_FLAG_GUIDED_ENABLED        8   // 0b00001000 - Guided mode enabled. System flies MISSIONs/mission items.
@@ -12,7 +11,13 @@
 #define VEHICLE_MODE_FLAG_MANUAL_INPUT_ENABLED 64   // 0b01000000 - Manual input enabled. Remote control input is active.
 #define VEHICLE_MODE_FLAG_SAFETY_ARMED        128   // 0b10000000 - MAV safety set to armed. Motors are ready to start, system is ready for flight.
 #define VEHICLE_MODE_FLAG_ENUM_END            129   // End marker for mode flag enumeration.
-#define PX4_CUSTOM_MAIN_MODE_MANUAL 1
+
+#define VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED 1   // 0b00000001 - Reserved for future use.
+
+#define PX4_CUSTOM_MAIN_MODE_MANUAL             1
+#define PX4_CUSTOM_MAIN_MODE_ALTCTL             2
+#define PX4_CUSTOM_MAIN_MODE_POSCTL             3
+
 
 
 #include "px4_ros2/components/mode_executor.hpp"
@@ -52,10 +57,14 @@ ModeExecutorBase::ModeExecutorBase(
     topic_namespace_prefix + "fmu/in/vehicle_command_mode_executor", 1);
 
 
-
+  
   _vehicle_command_ack_sub = _node.create_subscription<px4_msgs::msg::VehicleCommandAck>(
     topic_namespace_prefix + "fmu/out/vehicle_command_ack", rclcpp::QoS(1).best_effort(),
     [](px4_msgs::msg::VehicleCommandAck::UniquePtr msg) {});
+
+
+
+
 }
 
 
@@ -144,7 +153,16 @@ Result ModeExecutorBase::sendCommandSync(
   cmd.param5 = param5;
   cmd.param6 = param6;
   cmd.param7 = param7;
-  cmd.source_component = px4_msgs::msg::VehicleCommand::COMPONENT_MODE_EXECUTOR_START + id();
+
+  // if (cmd.command == px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_SET_MODE) {
+  //   // cmd.param1 = VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED;
+  //   cmd.source_component = 2;
+  // } else {
+    cmd.source_component = px4_msgs::msg::VehicleCommand::COMPONENT_MODE_EXECUTOR_START + id(); 
+
+  // }
+
+  
   cmd.timestamp = _node.get_clock()->now().nanoseconds() / 1000;
 
   
@@ -204,18 +222,41 @@ void ModeExecutorBase::scheduleMode(
 {
 
 
-  // if (mode_id == 0) {
-  //   //Set the mode requirements for manual control
-  //   _owned_mode.modeRequirements().manual_control = true;
-  // } 
-  // else {
-  //    _owned_mode.modeRequirements().manual_control = false;
-  // }
-
-
   px4_msgs::msg::VehicleCommand cmd{};
+  
+
+  if (mode_id == 0) { 
+    RCLCPP_WARN(_node.get_logger(), "ModeExecutorBase::scheduleMode: mode_id == 0");
+    //Set the mode requirements for manual control
+    // _owned_mode.modeRequirements().manual_control = true;
+
+    cmd.command = px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_SET_MODE;
+    // pour manual mode 
+    cmd.param1 = VEHICLE_MODE_FLAG_CUSTOM_MODE_ENABLED;
+    cmd.param2 = PX4_CUSTOM_MAIN_MODE_MANUAL; // Set to PX 
+
+    // // pour mode position
+    // cmd.param1 = VEHICLE_MODE_FLAG_MANUAL_INPUT_ENABLED | VEHICLE_MODE_FLAG_GUIDED_ENABLED;
+
+
+    // //pour le mode stabilisé
+    // cmd.param1 = VEHICLE_MODE_FLAG_MANUAL_INPUT_ENABLED | VEHICLE_MODE_FLAG_GUIDED_ENABLED;
+
+    // //pour le mode manual
+    // cmd.param1 = VEHICLE_MODE_FLAG_MANUAL_INPUT_ENABLED ;
+
+    // cmd.param1 = VEHICLE_MODE_FLAG_MANUAL_INPUT_ENABLED | VEHICLE_MODE_FLAG_GUIDED_ENABLED;
+    // cmd.param2 = PX4_CUSTOM_MAIN_MODE_MANUAL; // Set to PX4_CUSTOM_MAIN_MODE_MANUAL for manual mode
+    // cmd.param3 = 0; // Sub-mode, if any
+
+
+  } else {
+  // _owned_mode.modeRequirements().manual_control = false;
   cmd.command = px4_msgs::msg::VehicleCommand::VEHICLE_CMD_SET_NAV_STATE;
   cmd.param1 = mode_id;
+
+ }
+  
 
   scheduleMode(mode_id, cmd, on_completed); 
 }
@@ -234,6 +275,9 @@ void ModeExecutorBase::scheduleMode(
   // If there's already an active mode, cancel it (it will call the callback with a failure result)
   _current_scheduled_mode.cancel();
 
+
+  
+
   const Result result = sendCommandSync(
     cmd.command, cmd.param1, cmd.param2, cmd.param3, cmd.param4, cmd.param5, cmd.param6,
     cmd.param7);
@@ -241,7 +285,7 @@ void ModeExecutorBase::scheduleMode(
   if (result != Result::Success) {
     on_completed(result);
     return;
-  }
+  } 
 
   // Store the callback and ensure it's called eventually. There's a number of outcomes:
   // - The mode finishes and publishes the completion result.
@@ -276,7 +320,7 @@ void ModeExecutorBase::rtl(const CompletedCallback & on_completed)
   scheduleMode(ModeBase::kModeIDRtl, on_completed);
 }
 
-void ModeExecutorBase::Manual_mode_PosCtl(const CompletedCallback & on_completed)
+void ModeExecutorBase::Manual_mode_PosCtl(const CompletedCallback & on_completed) //ajouté par moi
 {
   scheduleMode(ModeBase::kModeIDPosctl, on_completed);
 }
@@ -512,5 +556,7 @@ void ModeExecutorBase::WaitForVehicleStatusCondition::cancel()
     on_completed_callback(Result::Deactivated);             // Call after, as it might trigger new requests
   }
 }
+
+
 
 } // namespace px4_ros2
