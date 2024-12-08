@@ -1,123 +1,278 @@
-
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Joy
 import tkinter as tk
 from tkinter import PhotoImage
+import cv2
+from PIL import Image, ImageTk
+import threading
 
-# Create the main application window
-root = tk.Tk()
-root.title("Controller Layout")
-root.geometry("1000x600")
-root.resizable(False, False)
+B_CROIX = 0
+B_ROND = 1
+B_CARRE = 2
+B_TRIANGLE = 3
+B_SHARE = 4
+B_PS = 5
+B_OPT = 6
+B_JL = 7
+B_JR = 8
+B_L1 = 9
+B_R1 = 10
+B_H = 11
+B_B = 12
+B_L = 13
+B_R = 14
+B_CLIC = 15
 
-# Configure the canvas
-canvas = tk.Canvas(root, width=1000, height=600, bg="black")
-canvas.pack()
+B_L3 = 7
+B_R3 = 8
 
-# Top-left corner position
-corner_x = 0
-corner_y = 0
+J_LH = 0  # horizontal axis of the left stick
+J_LV = 1  # vertical axis of the left stick
+J_L2 = 4  # left trigger
+J_RH = 2  # horizontal axis of the right stick
+J_RV = 3  # vertical axis of the right stick
+J_R2 = 5  # right trigger
 
-# Scale variable
-scale = 0.25
+class JoyInterfaceNode(Node):
+    def __init__(self, root):
+        super().__init__('joy_interface_node')
+        #self.get_logger().info('Joy Interface Node has been started.')
 
-# Load and scale images
-def load_image(file_path):
-    image = PhotoImage(file=file_path)
-    width = int(image.width() * scale)
-    height = int(image.height() * scale)
-    print(f"Loaded {file_path}: width={width}, height={height}")
-    return image.subsample(int(1/scale)), width, height
+        # Initialize Joy message
+        self.joy = Joy()
+        self.joy.axes = [0.0] * 8
+        self.joy.buttons = [0] * 16
 
-# Method to resize images based on the scale
-def resize_images():
-    global l1_img, l1_width, l1_height
-    global l2_img, l2_width, l2_height
-    global r1_img, r1_width, r1_height
-    global r2_img, r2_width, r2_height
-    global share_img, share_width, share_height
-    global option_img, option_width, option_height
-    global up_img, up_width, up_height
-    global left_img, left_width, left_height
-    global right_img, right_width, right_height
-    global down_img, down_width, down_height
-    global cross_img, cross_width, cross_height
-    global triangle_img, triangle_width, triangle_height
-    global round_img, round_width, round_height
-    global square_img, square_width, square_height
-    global l_stick_img, l_stick_width, l_stick_height
-    global r_stick_img, r_stick_width, r_stick_height
-    global l_sticks_zone, r_sticks_zone, l_sticks_zone_width, l_sticks_zone_height, r_sticks_zone_width, r_sticks_zone_height
+        # Create subscriber for Joy messages
+        self.subscriber = self.create_subscription(Joy, "joy", self.cb_joy, 1)
 
-    l1_img, l1_width, l1_height = load_image("green/L1.png")
-    l2_img, l2_width, l2_height = load_image("green/L2.png")
-    r1_img, r1_width, r1_height = load_image("green/R1.png")
-    r2_img, r2_width, r2_height = load_image("green/R2.png")
-    share_img, share_width, share_height = load_image("green/share.png")
-    option_img, option_width, option_height = load_image("green/option.png")
-    up_img, up_width, up_height = load_image("green/up.png")
-    left_img, left_width, left_height = load_image("green/left.png")
-    right_img, right_width, right_height = load_image("green/right.png")
-    down_img, down_width, down_height = load_image("green/down.png")
-    cross_img, cross_width, cross_height = load_image("green/cross.png")
-    triangle_img, triangle_width, triangle_height = load_image("green/triangle.png")
-    round_img, round_width, round_height = load_image("green/round.png")
-    square_img, square_width, square_height = load_image("green/square.png")
-    l_stick_img, l_stick_width, l_stick_height = load_image("green/L_sticks_level.png")
-    r_stick_img, r_stick_width, r_stick_height = load_image("green/R_sticks_level.png")
-    l_sticks_zone, l_sticks_zone_width, l_sticks_zone_height = load_image("green/L_sticks_zone.png")
-    r_sticks_zone, r_sticks_zone_width, r_sticks_zone_height = load_image("green/R_sticks_zone.png")
+        # Create a timer to check button states
+        self.timer = self.create_timer(0.05, self.timer_callback)  # Increased frequency
 
-# Initial load of images
-resize_images()
+        # Tkinter setup
+        self.root = root
+        self.canvas = tk.Canvas(self.root, width=805, height=1000, bg="black")
+        self.canvas.pack()
 
-# Create a helper function to add images to the canvas
-def create_image_on_canvas(image, x, y):
-    canvas.create_image(corner_x + x, corner_y + y, image=image, anchor=tk.CENTER)
+        # Video stream setup
+        self.video_label = tk.Label(self.root, text="No Signal", bg="blue", fg="white", font=("Helvetica", 24))
+        self.video_label.place(x=75, y=10, width=640, height=480)  # Adjust position and size as needed
 
-# Add L2 and R2 images
-create_image_on_canvas(l2_img, 200, 200)
-create_image_on_canvas(r2_img, 800, 200)
+        # Start video stream thread
+        self.video_thread = threading.Thread(target=self.video_stream)
+        self.video_thread.daemon = True
+        self.video_thread.start()
 
-# Add L1 and R1 images
-create_image_on_canvas(l1_img, 200, 250)
-create_image_on_canvas(r1_img, 800, 250)
+        # Top-left corner position
+        self.corner_x = -100
+        self.corner_y = 350
 
-# Add Share and Option images
-create_image_on_canvas(share_img, 300, 300)
-create_image_on_canvas(option_img, 700, 300)
+        # Scale variable
+        self.scale = 0.25
 
-# Add Directional images (D-Pad)
-create_image_on_canvas(up_img, 200, 400)  # Up
-create_image_on_canvas(left_img, 150, 450)  # Left
-create_image_on_canvas(right_img, 250, 450) # Right
-create_image_on_canvas(down_img, 200, 500)  # Down
+        # Load and scale images
+        self.resize_images()
 
-# Add Action images
-create_image_on_canvas(cross_img, 800, 520)  # Cross
-create_image_on_canvas(triangle_img, 800, 370)  # Triangle
-create_image_on_canvas(round_img, 870, 450)  # Round
-create_image_on_canvas(square_img, 730, 450)  # Square
+        # Add green images to the canvas
+        self.image_ids = {
+            B_L1: self.create_image_on_canvas(self.l1_img, 200, 250),
+            B_R1: self.create_image_on_canvas(self.r1_img, 800, 250),
+            B_SHARE: self.create_image_on_canvas(self.share_img, 300, 300),
+            B_OPT: self.create_image_on_canvas(self.option_img, 700, 300),
+            B_H: self.create_image_on_canvas(self.up_img, 200, 400),
+            B_L: self.create_image_on_canvas(self.left_img, 150, 450),
+            B_R: self.create_image_on_canvas(self.right_img, 250, 450),
+            B_B: self.create_image_on_canvas(self.down_img, 200, 500),
+            B_CROIX: self.create_image_on_canvas(self.cross_img, 800, 520),
+            B_TRIANGLE: self.create_image_on_canvas(self.triangle_img, 800, 370),
+            B_ROND: self.create_image_on_canvas(self.round_img, 870, 450),
+            B_CARRE: self.create_image_on_canvas(self.square_img, 730, 450),
+            J_L2: self.create_image_on_canvas(self.l2_img, 200, 200),
+            J_R2: self.create_image_on_canvas(self.r2_img, 800, 200),
+            'L_sticks_zone': self.create_image_on_canvas(self.l_sticks_zone, 400, 500),
+            'R_sticks_zone': self.create_image_on_canvas(self.r_sticks_zone, 600, 500),
+            'L_stick': self.create_image_on_canvas(self.l_stick_img, 400, 500),
+            'R_stick': self.create_image_on_canvas(self.r_stick_img, 600, 500),
+        }
 
-# Add L-Stick and R-Stick zones images
-create_image_on_canvas(l_sticks_zone, 400, 500)  # L-Stick Zone
-create_image_on_canvas(r_sticks_zone, 600, 500)  # R-Stick Zone
+        # Variables for the text
+        current_mode = "Offboard"
+        current_navigation_state = "Takeoff"
 
-# Add L-Stick and R-Stick level images
-create_image_on_canvas(l_stick_img, 400, 500)  # L-Stick
-create_image_on_canvas(r_stick_img, 600, 500)  # R-Stick
+        # Add text box between Share and Option images
+        self.text_label = tk.Label(root, text=f"MODE: {current_mode}\n NAV_STATE: {current_navigation_state}", bg="white", font=("Helvetica", 18, "bold"), bd=2, relief="solid")
+        self.text_label.place(x=self.corner_x + 500, y=self.corner_y + 300, anchor=tk.CENTER)
 
-# Variables for the text
-current_mode = "Offboard"
-current_navigation_state = "Takeoff"
+    def cb_joy(self, msg):
+        """Callback function for Joy messages."""
+        self.joy = msg
+        #self.get_logger().info(f"Joy message received: {self.joy.buttons}")
+
+    def timer_callback(self) -> None:
+        """Callback function for the timer."""
+        self.highlight_buttons()
+
+    def load_image(self, file_path):
+        image = PhotoImage(file=f"src/px4-ros2-interface-lib/scripts/{file_path}")
+        width = int(image.width() * self.scale)
+        height = int(image.height() * self.scale)
+        #self.get_logger().info(f"Loaded {file_path}: width={width}, height={height}")
+        return image.subsample(int(1/self.scale)), width, height
+
+    def resize_images(self):
+        # for green images
+        self.l1_img, self.l1_width, self.l1_height = self.load_image("green/L1.png")
+        self.l2_img, self.l2_width, self.l2_height = self.load_image("green/L2.png")
+        self.r1_img, self.r1_width, self.r1_height = self.load_image("green/R1.png")
+        self.r2_img, self.r2_width, self.r2_height = self.load_image("green/R2.png")
+        self.share_img, self.share_width, self.share_height = self.load_image("green/share.png")
+        self.option_img, self.option_width, self.option_height = self.load_image("green/option.png")
+        self.up_img, self.up_width, self.up_height = self.load_image("green/up.png")
+        self.left_img, self.left_width, self.left_height = self.load_image("green/left.png")
+        self.right_img, self.right_width, self.right_height = self.load_image("green/right.png")
+        self.down_img, self.down_width, self.down_height = self.load_image("green/down.png")
+        self.cross_img, self.cross_width, self.cross_height = self.load_image("green/cross.png")
+        self.triangle_img, self.triangle_width, self.triangle_height = self.load_image("green/triangle.png")
+        self.round_img, self.round_width, self.round_height = self.load_image("green/round.png")
+        self.square_img, self.square_width, self.square_height = self.load_image("green/square.png")
+        self.l_stick_img, self.l_stick_width, self.l_stick_height = self.load_image("green/L_sticks_level.png")
+        self.r_stick_img, self.r_stick_width, self.r_stick_height = self.load_image("green/R_sticks_level.png")
+        self.l_sticks_zone, self.l_sticks_zone_width, self.l_sticks_zone_height = self.load_image("green/L_sticks_zone.png")
+        self.r_sticks_zone, self.r_sticks_zone_width, self.r_sticks_zone_height = self.load_image("green/R_sticks_zone.png")
+
+        # for red images
+        self.l1_img_red, self.l1_width_red, self.l1_height_red = self.load_image("red/L1.png")
+        self.l2_img_red, self.l2_width_red, self.l2_height_red = self.load_image("red/L2.png")
+        self.r1_img_red, self.r1_width_red, self.r1_height_red = self.load_image("red/R1.png")
+        self.r2_img_red, self.r2_width_red, self.r2_height_red = self.load_image("red/R2.png")
+        self.share_img_red, self.share_width_red, self.share_height_red = self.load_image("red/share.png")
+        self.option_img_red, self.option_width_red, self.option_height_red = self.load_image("red/option.png")
+        self.up_img_red, self.up_width_red, self.up_height_red = self.load_image("red/up.png")
+        self.left_img_red, self.left_width_red, self.left_height_red = self.load_image("red/left.png")
+        self.right_img_red, self.right_width_red, self.right_height_red = self.load_image("red/right.png")
+        self.down_img_red, self.down_width_red, self.down_height_red = self.load_image("red/down.png")
+        self.cross_img_red, self.cross_width_red, self.cross_height_red = self.load_image("red/cross.png")
+        self.triangle_img_red, self.triangle_width_red, self.triangle_height_red = self.load_image("red/triangle.png")
+        self.round_img_red, self.round_width_red, self.round_height_red = self.load_image("red/round.png")
+        self.square_img_red, self.square_width_red, self.square_height_red = self.load_image("red/square.png")
+        self.l_stick_img_red, self.l_stick_width_red, self.l_stick_height_red = self.load_image("red/L3.png")
+        self.r_stick_img_red, self.r_stick_width_red, self.r_stick_height_red = self.load_image("red/R3.png")
+        self.l_sticks_zone_red, self.l_sticks_zone_width_red, self.l_sticks_zone_height_red = self.load_image("red/L_sticks_zone.png")
+        self.r_sticks_zone_red, self.r_sticks_zone_width_red, self.r_sticks_zone_height_red = self.load_image("red/R_sticks_zone.png")
+
+    def create_image_on_canvas(self, image, x, y):
+        return self.canvas.create_image(self.corner_x + x, self.corner_y + y, image=image, anchor=tk.CENTER)
+
+    def highlight_buttons(self):
+        button_images = {
+            B_L1: (self.l1_img, self.l1_img_red),
+            B_R1: (self.r1_img, self.r1_img_red),
+            B_SHARE: (self.share_img, self.share_img_red),
+            B_OPT: (self.option_img, self.option_img_red),
+            B_H: (self.up_img, self.up_img_red),
+            B_L: (self.left_img, self.left_img_red),
+            B_R: (self.right_img, self.right_img_red),
+            B_B: (self.down_img, self.down_img_red),
+            B_CROIX: (self.cross_img, self.cross_img_red),
+            B_TRIANGLE: (self.triangle_img, self.triangle_img_red),
+            B_ROND: (self.round_img, self.round_img_red),
+            B_CARRE: (self.square_img, self.square_img_red),
+            
+        } 
+
+        for button, (green_img, red_img) in button_images.items():
+
+            # if (not(button ==B_SHARE)):
+                if self.joy.buttons[button] == 1:
+                    self.canvas.itemconfig(self.image_ids[button], image=red_img)
+                    #self.get_logger().info(f"Button {button} pressed, switching to red image.")
+                else:
+                    self.canvas.itemconfig(self.image_ids[button], image=green_img)
+                    #self.get_logger().info(f"Button {button} released, switching to green image.")
+
+        # Handle axes for L2 and R2
+        if self.joy.axes[J_L2] < 1:
+            self.canvas.itemconfig(self.image_ids[J_L2], image=self.l2_img_red)
+            #self.get_logger().info("L2 pressed, switching to red image.")
+        else:
+            self.canvas.itemconfig(self.image_ids[J_L2], image=self.l2_img)
+            #self.get_logger().info("L2 released, switching to green image.")
+
+        if self.joy.axes[J_R2] < 1:
+            self.canvas.itemconfig(self.image_ids[J_R2], image=self.r2_img_red)
+            #self.get_logger().info("R2 pressed, switching to red image.")
+        else:
+            self.canvas.itemconfig(self.image_ids[J_R2], image=self.r2_img)
+            #self.get_logger().info("R2 released, switching to green image.")
+
+        # Handle stick zones and levels
+        self.canvas.coords(self.image_ids['L_stick'], self.corner_x + 400 - self.joy.axes[J_LH] * 50, self.corner_y + 500 - self.joy.axes[J_LV] * 50)
+        self.canvas.coords(self.image_ids['R_stick'], self.corner_x + 600 - self.joy.axes[J_RH] * 50, self.corner_y + 500 - self.joy.axes[J_RV] * 50)
+
+        # Handle L3 and R3 buttons
+        if self.joy.buttons[B_L3] == 1:
+            self.canvas.itemconfig(self.image_ids['L_stick'], image=self.l_stick_img_red)
+            #self.get_logger().info("L3 pressed, switching to red image.")
+        else:
+            self.canvas.itemconfig(self.image_ids['L_stick'], image=self.l_stick_img)
+            #self.get_logger().info("L3 released, switching to green image.")
+
+        if self.joy.buttons[B_R3] == 1:
+            self.canvas.itemconfig(self.image_ids['R_stick'], image=self.r_stick_img_red)
+            #self.get_logger().info("R3 pressed, switching to red image.")
+        else:
+            self.canvas.itemconfig(self.image_ids['R_stick'], image=self.r_stick_img)
+            #self.get_logger().info("R3 released, switching to green image.")
+
+        # # handle share button   
+        # if self.joy.buttons[B_SHARE] == 1:
+        #    self.canvas.itemconfig(self.image_ids[B_SHARE], image=self.share_img_red)
+        # #   self.get_logger().info("Share pressed, switching to red image.")
+        # else:
+        #   self.canvas.itemconfig(self.image_ids[B_SHARE], image=self.share_img)
+        # # self.get_logger().info("Share released, switching to green image.") 
+
+    def video_stream(self):
+        cap = cv2.VideoCapture('udpsrc port=5600 ! application/x-rtp,media=video,clock-rate=90000,encoding-name=H264 ! rtph264depay ! avdec_h264 ! videoconvert ! appsink', cv2.CAP_GSTREAMER)
+        if not cap.isOpened():
+            self.video_label.config(text="No Signal")
+            return
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                self.video_label.config(text="No Signal")
+                continue
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(frame)
+            imgtk = ImageTk.PhotoImage(image=img)
+            self.video_label.imgtk = imgtk
+            self.video_label.configure(image=imgtk, text="")
+            self.root.update_idletasks()
+
+def main(args=None):
+    rclpy.init(args=args)
+    
+    root = tk.Tk()
+    root.title("PS4 Controller Interface")
+    root.geometry("805x1000")  # Increase window size
+    joy_interface = JoyInterfaceNode(root)
+    
+    def ros_spin():
+        rclpy.spin_once(joy_interface, timeout_sec=0.01)  # Increased frequency
+        root.after(10, ros_spin)  # Increased frequency
+    
+    root.after(10, ros_spin)
+    root.mainloop()
+    
+    joy_interface.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
 
 
 
-# Add text box between Share and Option images
-text_label = tk.Label(root, text=f"MODE: {current_mode}\n NAV_STATE: {current_navigation_state}", bg="white", font=("Helvetica", 18, "bold"), bd=2, relief="solid")
-
-# text_label = tk.Label(root, text=f"Current mode: {current_mode}\nCurrent NAVIGATION STATE: {current_navigation_state}", bg="white", font=("Helvetica", 12))
-text_label.place(x=corner_x + 500, y=corner_y + 300, anchor=tk.CENTER)
-
-root.mainloop()
 
 
 
@@ -125,91 +280,287 @@ root.mainloop()
 
 
 
-# # #####################################################################
-import tkinter as tk
-
-# Create the main application window
-root = tk.Tk()
-root.title("Controller Layout")
-root.geometry("400x600")
-root.resizable(False, False)
-
-# Configure the canvas
-canvas = tk.Canvas(root, width=400, height=600, bg="white")
-canvas.pack()
-
-# Create a helper function to add buttons
-def create_button(text, x, y, width=50, height=30):
-    button = tk.Button(root, text=text, bg="#1E6A7E", fg="white", relief="flat")
-    canvas.create_window(x, y, width=width, height=height, window=button)
-    return button
-
-# Add L1 and L2 buttons
-create_button("L2", 80, 50, 60, 30)
-create_button("L1", 80, 100, 60, 30)
-
-# Add R1 and R2 buttons
-create_button("R2", 320, 50, 60, 30)
-create_button("R1", 320, 100, 60, 30)
-
-# Add Share and Option buttons
-create_button("share", 150, 180, 70, 40)
-create_button("option", 250, 180, 70, 40)
-
-# Add Directional buttons (D-Pad)
-create_button("", 90, 300, 30, 30)  # Up
-create_button("", 60, 330, 30, 30)  # Left
-create_button("", 120, 330, 30, 30) # Right
-create_button("", 90, 360, 30, 30)  # Down
-
-# Add Action buttons
-create_button("▲", 310, 300, 40, 40)  # Triangle
-create_button("■", 270, 340, 40, 40)  # Square
-create_button("●", 350, 340, 40, 40)  # Circle
-create_button("✖", 310, 380, 40, 40) # Cross
-
-# Add Joysticks
-create_button("", 150, 450, 80, 80)  # Left joystick
-create_button("", 250, 450, 80, 80)  # Right joystick
-
-# Make the joystick black dots in the middle
-canvas.create_oval(175, 475, 185, 485, fill="black")  # Left joystick center
-canvas.create_oval(275, 475, 285, 485, fill="black")  # Right joystick center
-
-root.mainloop()
- #####################################################################
-#  ########### !/usr/bin/env python3
- 
 # import rclpy
 # from rclpy.node import Node
 # from sensor_msgs.msg import Joy
 # import tkinter as tk
+# from tkinter import PhotoImage
 
-# # PS4 Controller button mappings
-# BUTTON_LABELS = {
-#     0: "✖",  # Cross (X)
-#     1: "◯",  # Circle (O)
-#     2: "■",  # Square
-#     3: "▲",  # Triangle
-#     4: "Share",
-#     5: "PS",
-#     6: "Options",
-#     7: "L3",
-#     8: "R3",
-#     9: "L1",
-#     10: "R1",
-#     11: "D-Pad Up",
-#     12: "D-Pad Down",
-#     13: "D-Pad Left",
-#     14: "D-Pad Right",
-#     15: "Touchpad Click"
-# }
+# B_CROIX = 0
+# B_ROND = 1
+# B_CARRE = 2
+# B_TRIANGLE = 3
+# B_SHARE = 4
+# B_PS = 5
+# B_OPT = 6
+# B_JL = 7
+# B_JR = 8
+# B_L1 = 9
+# B_R1 = 10
+# B_H = 11
+# B_B = 12
+# B_L = 13
+# B_R = 14
+# B_CLIC = 15
 
-# class JoyInterface(Node):
-#     """Node for interfacing with a PS4 controller."""
+# B_L3 = 7
+# B_R3 = 8
 
-#     def __init__(self, root) -> None:
-#         super().__init__('joy_interface')
+# J_LH = 0  # horizontal axis of the left stick
+# J_LV = 1  # vertical axis of the left stick
+# J_L2 = 4  # left trigger
+# J_RH = 2  # horizontal axis of the right stick
+# J_RV = 3  # vertical axis of the right stick
+# J_R2 = 5  # right trigger
+
+# class JoyInterfaceNode(Node):
+#     def __init__(self, root):
+#         super().__init__('joy_interface_node')
+#         #self.get_logger().info('Joy Interface Node has been started.')
+
+#         # Initialize Joy message
+#         self.joy = Joy()
+#         self.joy.axes = [0.0] * 8
+#         self.joy.buttons = [0] * 16
+
+#         # Create subscriber for Joy messages
+#         self.subscriber = self.create_subscription(Joy, "joy", self.cb_joy, 1)
+
+#         # Create a timer to check button states
+#         self.timer = self.create_timer(0.05, self.timer_callback)  # Increased frequency
+
+#         # Tkinter setup
+#         self.root = root
+#         self.canvas = tk.Canvas(self.root, width=1000, height=600, bg="black")
+#         self.canvas.pack()
+
+#         # Top-left corner position
+#         self.corner_x = 0
+#         self.corner_y = 0
+
+#         # Scale variable
+#         self.scale = 0.25
+
+#         # Load and scale images
+#         self.resize_images()
+
+#         # Add green images to the canvas
+#         self.image_ids = {
+#             B_L1: self.create_image_on_canvas(self.l1_img, 200, 250),
+#             B_R1: self.create_image_on_canvas(self.r1_img, 800, 250),
+#             B_SHARE: self.create_image_on_canvas(self.share_img, 300, 300),
+#             B_OPT: self.create_image_on_canvas(self.option_img, 700, 300),
+#             B_H: self.create_image_on_canvas(self.up_img, 200, 400),
+#             B_L: self.create_image_on_canvas(self.left_img, 150, 450),
+#             B_R: self.create_image_on_canvas(self.right_img, 250, 450),
+#             B_B: self.create_image_on_canvas(self.down_img, 200, 500),
+#             B_CROIX: self.create_image_on_canvas(self.cross_img, 800, 520),
+#             B_TRIANGLE: self.create_image_on_canvas(self.triangle_img, 800, 370),
+#             B_ROND: self.create_image_on_canvas(self.round_img, 870, 450),
+#             B_CARRE: self.create_image_on_canvas(self.square_img, 730, 450),
+#             J_L2: self.create_image_on_canvas(self.l2_img, 200, 200),
+#             J_R2: self.create_image_on_canvas(self.r2_img, 800, 200),
+#             'L_sticks_zone': self.create_image_on_canvas(self.l_sticks_zone, 400, 500),
+#             'R_sticks_zone': self.create_image_on_canvas(self.r_sticks_zone, 600, 500),
+#             'L_stick': self.create_image_on_canvas(self.l_stick_img, 400, 500),
+#             'R_stick': self.create_image_on_canvas(self.r_stick_img, 600, 500),
+#         }
+
+#     def cb_joy(self, msg):
+#         """Callback function for Joy messages."""
+#         self.joy = msg
+#         #self.get_logger().info(f"Joy message received: {self.joy.buttons}")
+
+#     def timer_callback(self) -> None:
+#         """Callback function for the timer."""
+#         self.highlight_buttons()
+
+#     def load_image(self, file_path):
+#         image = PhotoImage(file=f"src/px4-ros2-interface-lib/scripts/{file_path}")
+#         width = int(image.width() * self.scale)
+#         height = int(image.height() * self.scale)
+#         #self.get_logger().info(f"Loaded {file_path}: width={width}, height={height}")
+#         return image.subsample(int(1/self.scale)), width, height
+
+#     def resize_images(self):
+#         # for green images
+#         self.l1_img, self.l1_width, self.l1_height = self.load_image("green/L1.png")
+#         self.l2_img, self.l2_width, self.l2_height = self.load_image("green/L2.png")
+#         self.r1_img, self.r1_width, self.r1_height = self.load_image("green/R1.png")
+#         self.r2_img, self.r2_width, self.r2_height = self.load_image("green/R2.png")
+#         self.share_img, self.share_width, self.share_height = self.load_image("green/share.png")
+#         self.option_img, self.option_width, self.option_height = self.load_image("green/option.png")
+#         self.up_img, self.up_width, self.up_height = self.load_image("green/up.png")
+#         self.left_img, self.left_width, self.left_height = self.load_image("green/left.png")
+#         self.right_img, self.right_width, self.right_height = self.load_image("green/right.png")
+#         self.down_img, self.down_width, self.down_height = self.load_image("green/down.png")
+#         self.cross_img, self.cross_width, self.cross_height = self.load_image("green/cross.png")
+#         self.triangle_img, self.triangle_width, self.triangle_height = self.load_image("green/triangle.png")
+#         self.round_img, self.round_width, self.round_height = self.load_image("green/round.png")
+#         self.square_img, self.square_width, self.square_height = self.load_image("green/square.png")
+#         self.l_stick_img, self.l_stick_width, self.l_stick_height = self.load_image("green/L_sticks_level.png")
+#         self.r_stick_img, self.r_stick_width, self.r_stick_height = self.load_image("green/R_sticks_level.png")
+#         self.l_sticks_zone, self.l_sticks_zone_width, self.l_sticks_zone_height = self.load_image("green/L_sticks_zone.png")
+#         self.r_sticks_zone, self.r_sticks_zone_width, self.r_sticks_zone_height = self.load_image("green/R_sticks_zone.png")
+
+#         # for red images
+#         self.l1_img_red, self.l1_width_red, self.l1_height_red = self.load_image("red/L1.png")
+#         self.l2_img_red, self.l2_width_red, self.l2_height_red = self.load_image("red/L2.png")
+#         self.r1_img_red, self.r1_width_red, self.r1_height_red = self.load_image("red/R1.png")
+#         self.r2_img_red, self.r2_width_red, self.r2_height_red = self.load_image("red/R2.png")
+#         self.share_img_red, self.share_width_red, self.share_height_red = self.load_image("red/share.png")
+#         self.option_img_red, self.option_width_red, self.option_height_red = self.load_image("red/option.png")
+#         self.up_img_red, self.up_width_red, self.up_height_red = self.load_image("red/up.png")
+#         self.left_img_red, self.left_width_red, self.left_height_red = self.load_image("red/left.png")
+#         self.right_img_red, self.right_width_red, self.right_height_red = self.load_image("red/right.png")
+#         self.down_img_red, self.down_width_red, self.down_height_red = self.load_image("red/down.png")
+#         self.cross_img_red, self.cross_width_red, self.cross_height_red = self.load_image("red/cross.png")
+#         self.triangle_img_red, self.triangle_width_red, self.triangle_height_red = self.load_image("red/triangle.png")
+#         self.round_img_red, self.round_width_red, self.round_height_red = self.load_image("red/round.png")
+#         self.square_img_red, self.square_width_red, self.square_height_red = self.load_image("red/square.png")
+#         self.l_stick_img_red, self.l_stick_width_red, self.l_stick_height_red = self.load_image("red/L3.png")
+#         self.r_stick_img_red, self.r_stick_width_red, self.r_stick_height_red = self.load_image("red/R3.png")
+#         self.l_sticks_zone_red, self.l_sticks_zone_width_red, self.l_sticks_zone_height_red = self.load_image("red/L_sticks_zone.png")
+#         self.r_sticks_zone_red, self.r_sticks_zone_width_red, self.r_sticks_zone_height_red = self.load_image("red/R_sticks_zone.png")
+
+#     def create_image_on_canvas(self, image, x, y):
+#         return self.canvas.create_image(self.corner_x + x, self.corner_y + y, image=image, anchor=tk.CENTER)
+
+#     def highlight_buttons(self):
+#         button_images = {
+#             B_L1: (self.l1_img, self.l1_img_red),
+#             B_R1: (self.r1_img, self.r1_img_red),
+#             B_SHARE: (self.share_img, self.share_img_red),
+#             B_OPT: (self.option_img, self.option_img_red),
+#             B_H: (self.up_img, self.up_img_red),
+#             B_L: (self.left_img, self.left_img_red),
+#             B_R: (self.right_img, self.right_img_red),
+#             B_B: (self.down_img, self.down_img_red),
+#             B_CROIX: (self.cross_img, self.cross_img_red),
+#             B_TRIANGLE: (self.triangle_img, self.triangle_img_red),
+#             B_ROND: (self.round_img, self.round_img_red),
+#             B_CARRE: (self.square_img, self.square_img_red),
+            
+#         } 
+
+#         for button, (green_img, red_img) in button_images.items():
+
+#             # if (not(button ==B_SHARE)):
+#                 if self.joy.buttons[button] == 1:
+#                     self.canvas.itemconfig(self.image_ids[button], image=red_img)
+#                     #self.get_logger().info(f"Button {button} pressed, switching to red image.")
+#                 else:
+#                     self.canvas.itemconfig(self.image_ids[button], image=green_img)
+#                     #self.get_logger().info(f"Button {button} released, switching to green image.")
+
+#         # Handle axes for L2 and R2
+#         if self.joy.axes[J_L2] < 1:
+#             self.canvas.itemconfig(self.image_ids[J_L2], image=self.l2_img_red)
+#             #self.get_logger().info("L2 pressed, switching to red image.")
+#         else:
+#             self.canvas.itemconfig(self.image_ids[J_L2], image=self.l2_img)
+#             #self.get_logger().info("L2 released, switching to green image.")
+
+#         if self.joy.axes[J_R2] < 1:
+#             self.canvas.itemconfig(self.image_ids[J_R2], image=self.r2_img_red)
+#             #self.get_logger().info("R2 pressed, switching to red image.")
+#         else:
+#             self.canvas.itemconfig(self.image_ids[J_R2], image=self.r2_img)
+#             #self.get_logger().info("R2 released, switching to green image.")
+
+#         # Handle stick zones and levels
+#         self.canvas.coords(self.image_ids['L_stick'], self.corner_x + 400 - self.joy.axes[J_LH] * 50, self.corner_y + 500 - self.joy.axes[J_LV] * 50)
+#         self.canvas.coords(self.image_ids['R_stick'], self.corner_x + 600 - self.joy.axes[J_RH] * 50, self.corner_y + 500 - self.joy.axes[J_RV] * 50)
+
+#         # Handle L3 and R3 buttons
+#         if self.joy.buttons[B_L3] == 1:
+#             self.canvas.itemconfig(self.image_ids['L_stick'], image=self.l_stick_img_red)
+#             #self.get_logger().info("L3 pressed, switching to red image.")
+#         else:
+#             self.canvas.itemconfig(self.image_ids['L_stick'], image=self.l_stick_img)
+#             #self.get_logger().info("L3 released, switching to green image.")
+
+#         if self.joy.buttons[B_R3] == 1:
+#             self.canvas.itemconfig(self.image_ids['R_stick'], image=self.r_stick_img_red)
+#             #self.get_logger().info("R3 pressed, switching to red image.")
+#         else:
+#             self.canvas.itemconfig(self.image_ids['R_stick'], image=self.r_stick_img)
+#             #self.get_logger().info("R3 released, switching to green image.")
+
+#         # # handle share button   
+#         # if self.joy.buttons[B_SHARE] == 1:
+#         #    self.canvas.itemconfig(self.image_ids[B_SHARE], image=self.share_img_red)
+#         # #   self.get_logger().info("Share pressed, switching to red image.")
+#         # else:
+#         #   self.canvas.itemconfig(self.image_ids[B_SHARE], image=self.share_img)
+#         # # self.get_logger().info("Share released, switching to green image.") 
+
+
+# def main(args=None):
+#     rclpy.init(args=args)
+    
+#     root = tk.Tk()
+#     root.title("PS4 Controller Interface")
+#     joy_interface = JoyInterfaceNode(root)
+    
+#     def ros_spin():
+#         rclpy.spin_once(joy_interface, timeout_sec=0.01)  # Increased frequency
+#         root.after(10, ros_spin)  # Increased frequency
+    
+#     root.after(10, ros_spin)
+#     root.mainloop()
+    
+#     joy_interface.destroy_node()
+#     rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
+
+
+
+
+
+
+
+
+
+
+
+
+# import rclpy
+# from rclpy.node import Node
+# from sensor_msgs.msg import Joy
+# import tkinter as tk
+# from tkinter import PhotoImage
+
+# B_CROIX = 0
+# B_ROND = 1
+# B_CARRE = 2
+# B_TRIANGLE = 3
+# B_SHARE = 4
+# B_PS = 5
+# B_OPT = 6
+# B_JL = 7
+# B_JR = 8
+# B_L1 = 9
+# B_R1 = 10
+# B_H = 11
+# B_B = 12
+# B_L = 13
+# B_R = 14
+# B_CLIC = 15
+
+# J_LH = 0
+# J_LV = 1
+# J_L2 = 4
+# J_RH = 2
+# J_RV = 3
+# J_R2 = 5
+
+# class JoyInterfaceNode(Node):
+#     def __init__(self, root):
+#         super().__init__('joy_interface_node')
+#         self.get_logger().info('Joy Interface Node has been started.')
 
 #         # Initialize Joy message
 #         self.joy = Joy()
@@ -224,31 +575,123 @@ root.mainloop()
 
 #         # Tkinter setup
 #         self.root = root
-#         self.label = tk.Label(root, text="Pressed buttons: None", font=("Helvetica", 16))
-#         self.label.pack(pady=20)
+#         self.canvas = tk.Canvas(self.root, width=1000, height=600, bg="black")
+#         self.canvas.pack()
+
+#         # Top-left corner position
+#         self.corner_x = 0
+#         self.corner_y = 0
+
+#         # Scale variable
+#         self.scale = 0.25
+
+#         # Load and scale images
+#         self.resize_images()
+
+#         # Add green images to the canvas
+#         self.image_ids = {
+#             B_L1: self.create_image_on_canvas(self.l1_img, 200, 250),
+#             B_R1: self.create_image_on_canvas(self.r1_img, 800, 250),
+#             B_SHARE: self.create_image_on_canvas(self.share_img, 300, 300),
+#             B_OPT: self.create_image_on_canvas(self.option_img, 700, 300),
+#             B_H: self.create_image_on_canvas(self.up_img, 200, 400),
+#             B_L: self.create_image_on_canvas(self.left_img, 150, 450),
+#             B_R: self.create_image_on_canvas(self.right_img, 250, 450),
+#             B_B: self.create_image_on_canvas(self.down_img, 200, 500),
+#             B_CROIX: self.create_image_on_canvas(self.cross_img, 800, 520),
+#             B_TRIANGLE: self.create_image_on_canvas(self.triangle_img, 800, 370),
+#             B_ROND: self.create_image_on_canvas(self.round_img, 870, 450),
+#             B_CARRE: self.create_image_on_canvas(self.square_img, 730, 450),
+#         }
 
 #     def cb_joy(self, msg):
 #         """Callback function for Joy messages."""
 #         self.joy = msg
+#         self.get_logger().info(f"Joy message received: {self.joy.buttons}")
 
 #     def timer_callback(self) -> None:
 #         """Callback function for the timer."""
 #         self.highlight_buttons()
 
-#     def highlight_buttons(self):
-#         """Highlight the buttons that are currently pressed."""
-#         pressed_buttons = [BUTTON_LABELS[index] for index, value in enumerate(self.joy.buttons) if value == 1]
-#         if pressed_buttons:
-#             self.label.config(text=f"Pressed buttons: {pressed_buttons}")
-#         else:
-#             self.label.config(text="Pressed buttons: None")
+#     def load_image(self, file_path):
+#         image = PhotoImage(file=f"src/px4-ros2-interface-lib/scripts/{file_path}")
+#         width = int(image.width() * self.scale)
+#         height = int(image.height() * self.scale)
+#         self.get_logger().info(f"Loaded {file_path}: width={width}, height={height}")
+#         return image.subsample(int(1/self.scale)), width, height
 
-# def main(args=None) -> None:
+#     def resize_images(self):
+#         # for green images
+#         self.l1_img, self.l1_width, self.l1_height = self.load_image("green/L1.png")
+#         self.l2_img, self.l2_width, self.l2_height = self.load_image("green/L2.png")
+#         self.r1_img, self.r1_width, self.r1_height = self.load_image("green/R1.png")
+#         self.r2_img, self.r2_width, self.r2_height = self.load_image("green/R2.png")
+#         self.share_img, self.share_width, self.share_height = self.load_image("green/share.png")
+#         self.option_img, self.option_width, self.option_height = self.load_image("green/option.png")
+#         self.up_img, self.up_width, self.up_height = self.load_image("green/up.png")
+#         self.left_img, self.left_width, self.left_height = self.load_image("green/left.png")
+#         self.right_img, self.right_width, self.right_height = self.load_image("green/right.png")
+#         self.down_img, self.down_width, self.down_height = self.load_image("green/down.png")
+#         self.cross_img, self.cross_width, self.cross_height = self.load_image("green/cross.png")
+#         self.triangle_img, self.triangle_width, self.triangle_height = self.load_image("green/triangle.png")
+#         self.round_img, self.round_width, self.round_height = self.load_image("green/round.png")
+#         self.square_img, self.square_width, self.square_height = self.load_image("green/square.png")
+#         self.l_stick_img, self.l_stick_width, self.l_stick_height = self.load_image("green/L_sticks_level.png")
+#         self.r_stick_img, self.r_stick_width, self.r_stick_height = self.load_image("green/R_sticks_level.png")
+#         self.l_sticks_zone, self.l_sticks_zone_width, self.l_sticks_zone_height = self.load_image("green/L_sticks_zone.png")
+#         self.r_sticks_zone, self.r_sticks_zone_width, self.r_sticks_zone_height = self.load_image("green/R_sticks_zone.png")
+
+#         # for red images
+#         self.l1_img_red, self.l1_width_red, self.l1_height_red = self.load_image("red/L1.png")
+#         self.l2_img_red, self.l2_width_red, self.l2_height_red = self.load_image("red/L2.png")
+#         self.r1_img_red, self.r1_width_red, self.r1_height_red = self.load_image("red/R1.png")
+#         self.r2_img_red, self.r2_width_red, self.r2_height_red = self.load_image("red/R2.png")
+#         self.share_img_red, self.share_width_red, self.share_height_red = self.load_image("red/share.png")
+#         self.option_img_red, self.option_width_red, self.option_height_red = self.load_image("red/option.png")
+#         self.up_img_red, self.up_width_red, self.up_height_red = self.load_image("red/up.png")
+#         self.left_img_red, self.left_width_red, self.left_height_red = self.load_image("red/left.png")
+#         self.right_img_red, self.right_width_red, self.right_height_red = self.load_image("red/right.png")
+#         self.down_img_red, self.down_width_red, self.down_height_red = self.load_image("red/down.png")
+#         self.cross_img_red, self.cross_width_red, self.cross_height_red = self.load_image("red/cross.png")
+#         self.triangle_img_red, self.triangle_width_red, self.triangle_height_red = self.load_image("red/triangle.png")
+#         self.round_img_red, self.round_width_red, self.round_height_red = self.load_image("red/round.png")
+#         self.square_img_red, self.square_width_red, self.square_height_red = self.load_image("red/square.png")
+#         self.l_sticks_zone_red, self.l_sticks_zone_width_red, self.l_sticks_zone_height_red = self.load_image("red/L_sticks_zone.png")
+#         self.r_sticks_zone_red, self.r_sticks_zone_width_red, self.r_sticks_zone_height_red = self.load_image("red/R_sticks_zone.png")
+
+#     def create_image_on_canvas(self, image, x, y):
+#         return self.canvas.create_image(self.corner_x + x, self.corner_y + y, image=image, anchor=tk.CENTER)
+
+#     def highlight_buttons(self):
+#         button_images = {
+#             B_L1: (self.l1_img, self.l1_img_red),
+#             B_R1: (self.r1_img, self.r1_img_red),
+#             B_SHARE: (self.share_img, self.share_img_red),
+#             B_OPT: (self.option_img, self.option_img_red),
+#             B_H: (self.up_img, self.up_img_red),
+#             B_L: (self.left_img, self.left_img_red),
+#             B_R: (self.right_img, self.right_img_red),
+#             B_B: (self.down_img, self.down_img_red),
+#             B_CROIX: (self.cross_img, self.cross_img_red),
+#             B_TRIANGLE: (self.triangle_img, self.triangle_img_red),
+#             B_ROND: (self.round_img, self.round_img_red),
+#             B_CARRE: (self.square_img, self.square_img_red),
+#         }
+
+#         for button, (green_img, red_img) in button_images.items():
+#             if self.joy.buttons[button] == 1:
+#                 self.canvas.itemconfig(self.image_ids[button], image=red_img)
+#                 self.get_logger().info(f"Button {button} pressed, switching to red image.")
+#             else:
+#                 self.canvas.itemconfig(self.image_ids[button], image=green_img)
+#                 self.get_logger().info(f"Button {button} released, switching to green image.")
+
+# def main(args=None):
 #     rclpy.init(args=args)
     
 #     root = tk.Tk()
 #     root.title("PS4 Controller Interface")
-#     joy_interface = JoyInterface(root)
+#     joy_interface = JoyInterfaceNode(root)
     
 #     def ros_spin():
 #         rclpy.spin_once(joy_interface, timeout_sec=0.1)
@@ -262,3 +705,4 @@ root.mainloop()
 
 # if __name__ == '__main__':
 #     main()
+

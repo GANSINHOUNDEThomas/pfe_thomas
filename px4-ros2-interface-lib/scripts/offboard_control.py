@@ -183,7 +183,7 @@ class OffboardControl(Node):
         # msg.yawspeed = yaw
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(msg)
-        self.get_logger().info(f"cpt: {self.cpt2}  Publishing velocity setpoints {[x, y, z, yaw]}")
+        # self.get_logger().info(f"cpt: {self.cpt2}  Publishing velocity setpoints {[x, y, z, yaw]}")
 
 
     def publish_vehicle_command(self, command, **params) -> None:
