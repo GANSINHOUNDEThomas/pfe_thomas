@@ -101,6 +101,10 @@ class OffboardControl(Node):
         self.vehicle_status = VehicleStatus()
         self.takeoff_height = -3.0
 
+        self.yaw = 0.0
+        self.max_speed=3.0
+        
+
         # Create a timer to publish control commands
         self.timer = self.create_timer(0.1, self.timer_callback)
 
@@ -168,7 +172,19 @@ class OffboardControl(Node):
         msg.yaw = yaw  # (90 degree)
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(msg)
-        self.get_logger().info(f"cpt: {self.cpt2}  Publishing position setpoints {[x, y, z, yaw]}")
+        # self.get_logger().info(f"cpt: {self.cpt2}  Publishing position setpoints {[x, y, z, yaw]}")
+
+    def publish_velocity_setpoint(self, x: float, y: float, z: float, yaw:float):
+        """Publish the trajectory setpoint."""
+        msg = TrajectorySetpoint()
+        msg.position = [float('nan'), float('nan'), float('nan')]
+        msg.velocity = [x, y, z]
+        msg.yaw = -yaw 
+        # msg.yawspeed = yaw
+        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.trajectory_setpoint_publisher.publish(msg)
+        self.get_logger().info(f"cpt: {self.cpt2}  Publishing velocity setpoints {[x, y, z, yaw]}")
+
 
     def publish_vehicle_command(self, command, **params) -> None:
         """Publish a vehicle command."""
@@ -176,7 +192,7 @@ class OffboardControl(Node):
         msg.command = command
         msg.param1 = params.get("param1", 0.0)
         msg.param2 = params.get("param2", 0.0)
-        msg.param3 = params.get("param3", 0.0)
+        msg.param3 = params.get("param3", 0.0) 
         msg.param4 = params.get("param4", 0.0)
         msg.param5 = params.get("param5", 0.0)
         msg.param6 = params.get("param6", 0.0)
@@ -207,57 +223,35 @@ class OffboardControl(Node):
         if self.joy.buttons[B_CROIX]:
             self.land()
 
-        self.get_logger().info(f"nav_state: {self.vehicle_status.nav_state} ")
+        # self.get_logger().info(f"nav_state: {self.vehicle_status.nav_state} ")
         if self.joy.buttons[B_ROND]==1: #active offboard
             self.engage_offboard_mode()
             self.position=[ self.vehicle_local_position.x,self.vehicle_local_position.y,self.vehicle_local_position.z]
-        if self.vehicle_status.nav_state==14 and self.vehicle_status.arming_state==2: #offboard mode && armed
-            
-            msg=TrajectorySetpoint()
 
-            max_speed=5.0
-            #inversion x-y PX4/ROS
-            #  COMMANDE en POSITION : les joysticks font évoluer les valeurs de pos
-            #  La position initiale est obtenue lors du clic sur le bouton rond 
+
+        # set the do change speed before enterring offboard mode when armed
+        if  self.vehicle_status.arming_state==2: # armed
+            self.publish_offboard_control_heartbeat_signal()
+            
+            ## do change speed
+            # self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_CHANGE_SPEED, param1=0.0, param2=1.0)
+
+        if self.vehicle_status.nav_state==14 and self.vehicle_status.arming_state==2: 
+
+
             cs=cos(self.vehicle_local_position.heading)
             ss=sin(self.vehicle_local_position.heading)
-            # self.position[0]+=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)/10.0
-            # self.position[1]+=(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)/10.0
-            # self.position[2]-=self.joy.axes[J_RV]/2.0
-            # msg.position=self.position
-            # msg.yaw=self.vehicle_local_position.heading-self.joy.axes[J_RH]/5.0
-            # self.get_logger().info(f"cmd pos: {msg.position}")
-            # self.get_logger().info(f"cmd yaw: {msg.yaw}")
 
-            # COMMANDE EN VITESSE et POSITION
-            msg.velocity[0]=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)*max_speed
-            msg.velocity[1]=(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)*max_speed
-            msg.velocity[2]=-self.joy.axes[J_RV]*max_speed
+
+            # COMMANDE EN VITESSE et POSITION Z
+            veloce_x=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)*self.max_speed
+            veloce_y=(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)*self.max_speed
+            veloce_z=-self.joy.axes[J_RV]*self.max_speed
+            # new_yaw = self.vehicle_local_position.heading+ (self.joy.axes[J_RH])*0.05 # 0.05 is like a dt here
+            self.yaw = self.yaw + (self.joy.axes[J_RH])*self.max_speed*0.05
+            self.publish_velocity_setpoint(veloce_x,veloce_y,veloce_z,self.yaw)
             
-            # msg.position[0], msg.position[1], msg.position[2] = float('nan'), float('nan'), float('nan')
 
-            # msg.acceleration[0]=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)*max_speed
-            # msg.acceleration[1]=-(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)*max_speed
-            # msg.acceleration[2]=-self.joy.axes[J_RV]*max_speed
-            # self.get_logger().info(f"cmd acc: {msg.acceleration}")
-
-            msg.yawspeed=self.joy.axes[J_RH]*max_speed
-
-            # msg.yaw=self.vehicle_local_position.heading-self.joy.axes[J_RH]/5.0
-
-
-
-
-            # self.get_logger().info(f"cmd pos: {msg.position}")
-            # msg.velocity=[self.joy.axes[J_LV],self.joy.axes[J_LH],self.joy.axes[J_RV]]
-            
-            # msg.yawspeed=self.joy.axes[J_RH]
-            msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-            self.trajectory_setpoint_publisher.publish(msg)
-            self.get_logger().info(f"cmd yawspeed: {msg.yawspeed} yaw: {msg.yaw}")
-
-            
-    
     
 
         # if self.offboard_setpoint_counter == 10:
