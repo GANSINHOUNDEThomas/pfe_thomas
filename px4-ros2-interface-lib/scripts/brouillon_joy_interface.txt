@@ -1,0 +1,264 @@
+
+import tkinter as tk
+from tkinter import PhotoImage
+
+# Create the main application window
+root = tk.Tk()
+root.title("Controller Layout")
+root.geometry("1000x600")
+root.resizable(False, False)
+
+# Configure the canvas
+canvas = tk.Canvas(root, width=1000, height=600, bg="black")
+canvas.pack()
+
+# Top-left corner position
+corner_x = 0
+corner_y = 0
+
+# Scale variable
+scale = 0.25
+
+# Load and scale images
+def load_image(file_path):
+    image = PhotoImage(file=file_path)
+    width = int(image.width() * scale)
+    height = int(image.height() * scale)
+    print(f"Loaded {file_path}: width={width}, height={height}")
+    return image.subsample(int(1/scale)), width, height
+
+# Method to resize images based on the scale
+def resize_images():
+    global l1_img, l1_width, l1_height
+    global l2_img, l2_width, l2_height
+    global r1_img, r1_width, r1_height
+    global r2_img, r2_width, r2_height
+    global share_img, share_width, share_height
+    global option_img, option_width, option_height
+    global up_img, up_width, up_height
+    global left_img, left_width, left_height
+    global right_img, right_width, right_height
+    global down_img, down_width, down_height
+    global cross_img, cross_width, cross_height
+    global triangle_img, triangle_width, triangle_height
+    global round_img, round_width, round_height
+    global square_img, square_width, square_height
+    global l_stick_img, l_stick_width, l_stick_height
+    global r_stick_img, r_stick_width, r_stick_height
+    global l_sticks_zone, r_sticks_zone, l_sticks_zone_width, l_sticks_zone_height, r_sticks_zone_width, r_sticks_zone_height
+
+    l1_img, l1_width, l1_height = load_image("green/L1.png")
+    l2_img, l2_width, l2_height = load_image("green/L2.png")
+    r1_img, r1_width, r1_height = load_image("green/R1.png")
+    r2_img, r2_width, r2_height = load_image("green/R2.png")
+    share_img, share_width, share_height = load_image("green/share.png")
+    option_img, option_width, option_height = load_image("green/option.png")
+    up_img, up_width, up_height = load_image("green/up.png")
+    left_img, left_width, left_height = load_image("green/left.png")
+    right_img, right_width, right_height = load_image("green/right.png")
+    down_img, down_width, down_height = load_image("green/down.png")
+    cross_img, cross_width, cross_height = load_image("green/cross.png")
+    triangle_img, triangle_width, triangle_height = load_image("green/triangle.png")
+    round_img, round_width, round_height = load_image("green/round.png")
+    square_img, square_width, square_height = load_image("green/square.png")
+    l_stick_img, l_stick_width, l_stick_height = load_image("green/L_sticks_level.png")
+    r_stick_img, r_stick_width, r_stick_height = load_image("green/R_sticks_level.png")
+    l_sticks_zone, l_sticks_zone_width, l_sticks_zone_height = load_image("green/L_sticks_zone.png")
+    r_sticks_zone, r_sticks_zone_width, r_sticks_zone_height = load_image("green/R_sticks_zone.png")
+
+# Initial load of images
+resize_images()
+
+# Create a helper function to add images to the canvas
+def create_image_on_canvas(image, x, y):
+    canvas.create_image(corner_x + x, corner_y + y, image=image, anchor=tk.CENTER)
+
+# Add L2 and R2 images
+create_image_on_canvas(l2_img, 200, 200)
+create_image_on_canvas(r2_img, 800, 200)
+
+# Add L1 and R1 images
+create_image_on_canvas(l1_img, 200, 250)
+create_image_on_canvas(r1_img, 800, 250)
+
+# Add Share and Option images
+create_image_on_canvas(share_img, 300, 300)
+create_image_on_canvas(option_img, 700, 300)
+
+# Add Directional images (D-Pad)
+create_image_on_canvas(up_img, 200, 400)  # Up
+create_image_on_canvas(left_img, 150, 450)  # Left
+create_image_on_canvas(right_img, 250, 450) # Right
+create_image_on_canvas(down_img, 200, 500)  # Down
+
+# Add Action images
+create_image_on_canvas(cross_img, 800, 520)  # Cross
+create_image_on_canvas(triangle_img, 800, 370)  # Triangle
+create_image_on_canvas(round_img, 870, 450)  # Round
+create_image_on_canvas(square_img, 730, 450)  # Square
+
+# Add L-Stick and R-Stick zones images
+create_image_on_canvas(l_sticks_zone, 400, 500)  # L-Stick Zone
+create_image_on_canvas(r_sticks_zone, 600, 500)  # R-Stick Zone
+
+# Add L-Stick and R-Stick level images
+create_image_on_canvas(l_stick_img, 400, 500)  # L-Stick
+create_image_on_canvas(r_stick_img, 600, 500)  # R-Stick
+
+# Variables for the text
+current_mode = "Offboard"
+current_navigation_state = "Takeoff"
+
+
+
+# Add text box between Share and Option images
+text_label = tk.Label(root, text=f"MODE: {current_mode}\n NAV_STATE: {current_navigation_state}", bg="white", font=("Helvetica", 18, "bold"), bd=2, relief="solid")
+
+# text_label = tk.Label(root, text=f"Current mode: {current_mode}\nCurrent NAVIGATION STATE: {current_navigation_state}", bg="white", font=("Helvetica", 12))
+text_label.place(x=corner_x + 500, y=corner_y + 300, anchor=tk.CENTER)
+
+root.mainloop()
+
+
+
+
+
+
+
+# # #####################################################################
+import tkinter as tk
+
+# Create the main application window
+root = tk.Tk()
+root.title("Controller Layout")
+root.geometry("400x600")
+root.resizable(False, False)
+
+# Configure the canvas
+canvas = tk.Canvas(root, width=400, height=600, bg="white")
+canvas.pack()
+
+# Create a helper function to add buttons
+def create_button(text, x, y, width=50, height=30):
+    button = tk.Button(root, text=text, bg="#1E6A7E", fg="white", relief="flat")
+    canvas.create_window(x, y, width=width, height=height, window=button)
+    return button
+
+# Add L1 and L2 buttons
+create_button("L2", 80, 50, 60, 30)
+create_button("L1", 80, 100, 60, 30)
+
+# Add R1 and R2 buttons
+create_button("R2", 320, 50, 60, 30)
+create_button("R1", 320, 100, 60, 30)
+
+# Add Share and Option buttons
+create_button("share", 150, 180, 70, 40)
+create_button("option", 250, 180, 70, 40)
+
+# Add Directional buttons (D-Pad)
+create_button("", 90, 300, 30, 30)  # Up
+create_button("", 60, 330, 30, 30)  # Left
+create_button("", 120, 330, 30, 30) # Right
+create_button("", 90, 360, 30, 30)  # Down
+
+# Add Action buttons
+create_button("▲", 310, 300, 40, 40)  # Triangle
+create_button("■", 270, 340, 40, 40)  # Square
+create_button("●", 350, 340, 40, 40)  # Circle
+create_button("✖", 310, 380, 40, 40) # Cross
+
+# Add Joysticks
+create_button("", 150, 450, 80, 80)  # Left joystick
+create_button("", 250, 450, 80, 80)  # Right joystick
+
+# Make the joystick black dots in the middle
+canvas.create_oval(175, 475, 185, 485, fill="black")  # Left joystick center
+canvas.create_oval(275, 475, 285, 485, fill="black")  # Right joystick center
+
+root.mainloop()
+ #####################################################################
+#  ########### !/usr/bin/env python3
+ 
+# import rclpy
+# from rclpy.node import Node
+# from sensor_msgs.msg import Joy
+# import tkinter as tk
+
+# # PS4 Controller button mappings
+# BUTTON_LABELS = {
+#     0: "✖",  # Cross (X)
+#     1: "◯",  # Circle (O)
+#     2: "■",  # Square
+#     3: "▲",  # Triangle
+#     4: "Share",
+#     5: "PS",
+#     6: "Options",
+#     7: "L3",
+#     8: "R3",
+#     9: "L1",
+#     10: "R1",
+#     11: "D-Pad Up",
+#     12: "D-Pad Down",
+#     13: "D-Pad Left",
+#     14: "D-Pad Right",
+#     15: "Touchpad Click"
+# }
+
+# class JoyInterface(Node):
+#     """Node for interfacing with a PS4 controller."""
+
+#     def __init__(self, root) -> None:
+#         super().__init__('joy_interface')
+
+#         # Initialize Joy message
+#         self.joy = Joy()
+#         self.joy.axes = [0.0] * 8
+#         self.joy.buttons = [0] * 16
+
+#         # Create subscriber for Joy messages
+#         self.subscriber = self.create_subscription(Joy, "joy", self.cb_joy, 1)
+
+#         # Create a timer to check button states
+#         self.timer = self.create_timer(0.1, self.timer_callback)
+
+#         # Tkinter setup
+#         self.root = root
+#         self.label = tk.Label(root, text="Pressed buttons: None", font=("Helvetica", 16))
+#         self.label.pack(pady=20)
+
+#     def cb_joy(self, msg):
+#         """Callback function for Joy messages."""
+#         self.joy = msg
+
+#     def timer_callback(self) -> None:
+#         """Callback function for the timer."""
+#         self.highlight_buttons()
+
+#     def highlight_buttons(self):
+#         """Highlight the buttons that are currently pressed."""
+#         pressed_buttons = [BUTTON_LABELS[index] for index, value in enumerate(self.joy.buttons) if value == 1]
+#         if pressed_buttons:
+#             self.label.config(text=f"Pressed buttons: {pressed_buttons}")
+#         else:
+#             self.label.config(text="Pressed buttons: None")
+
+# def main(args=None) -> None:
+#     rclpy.init(args=args)
+    
+#     root = tk.Tk()
+#     root.title("PS4 Controller Interface")
+#     joy_interface = JoyInterface(root)
+    
+#     def ros_spin():
+#         rclpy.spin_once(joy_interface, timeout_sec=0.1)
+#         root.after(100, ros_spin)
+    
+#     root.after(100, ros_spin)
+#     root.mainloop()
+    
+#     joy_interface.destroy_node()
+#     rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()

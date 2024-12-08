@@ -4,8 +4,10 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleLocalPosition, VehicleStatus
+# from px4_msgs.msg import *
 from sensor_msgs.msg import Joy
 from math import sin,cos
+from geometry_msgs.msg import Twist
 
 B_CROIX=0
 B_ROND=1
@@ -89,6 +91,9 @@ class OffboardControl(Node):
         
         self.subscriber = self.create_subscription(Joy,"joy", self.cb_joy,1)
 
+        self.subscriber_cmd_vel = self.create_subscription(Twist, '/cmd_vel', self.cb_cmd_vel,1)
+        
+
         # Initialize variables
         self.offboard_setpoint_counter = 0
         self.cpt2=0
@@ -148,8 +153,8 @@ class OffboardControl(Node):
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
         msg = OffboardControlMode()
-        msg.position = True
-        msg.velocity = False
+        msg.position = False
+        msg.velocity = True
         msg.acceleration = False
         msg.attitude = False
         msg.body_rate = False
@@ -186,6 +191,9 @@ class OffboardControl(Node):
 
     def cb_joy(self,msg):
         self.joy=msg
+
+    def cb_cmd_vel(self,msg):
+        self.speed=msg    
     
     def timer_callback(self) -> None:
         """Callback function for the timer."""
@@ -207,26 +215,49 @@ class OffboardControl(Node):
             
             msg=TrajectorySetpoint()
 
+            max_speed=5.0
             #inversion x-y PX4/ROS
             #  COMMANDE en POSITION : les joysticks font évoluer les valeurs de pos
             #  La position initiale est obtenue lors du clic sur le bouton rond 
             cs=cos(self.vehicle_local_position.heading)
             ss=sin(self.vehicle_local_position.heading)
-            self.position[0]+=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)/10.0
-            self.position[1]+=(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)/10.0
-            self.position[2]-=self.joy.axes[J_RV]/2.0
-            msg.position=self.position
-            msg.yaw=self.vehicle_local_position.heading-self.joy.axes[J_RH]/5.0
+            # self.position[0]+=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)/10.0
+            # self.position[1]+=(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)/10.0
+            # self.position[2]-=self.joy.axes[J_RV]/2.0
+            # msg.position=self.position
+            # msg.yaw=self.vehicle_local_position.heading-self.joy.axes[J_RH]/5.0
+            # self.get_logger().info(f"cmd pos: {msg.position}")
+            # self.get_logger().info(f"cmd yaw: {msg.yaw}")
 
-            self.get_logger().info(f"cmd pos: {msg.position}")
+            # COMMANDE EN VITESSE et POSITION
+            msg.velocity[0]=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)*max_speed
+            msg.velocity[1]=(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)*max_speed
+            msg.velocity[2]=-self.joy.axes[J_RV]*max_speed
+            
+            # msg.position[0], msg.position[1], msg.position[2] = float('nan'), float('nan'), float('nan')
+
+            # msg.acceleration[0]=(self.joy.axes[J_LH]*ss+self.joy.axes[J_LV]*cs)*max_speed
+            # msg.acceleration[1]=-(-self.joy.axes[J_LH]*cs+self.joy.axes[J_LV]*ss)*max_speed
+            # msg.acceleration[2]=-self.joy.axes[J_RV]*max_speed
+            # self.get_logger().info(f"cmd acc: {msg.acceleration}")
+
+            msg.yawspeed=self.joy.axes[J_RH]*max_speed
+
+            # msg.yaw=self.vehicle_local_position.heading-self.joy.axes[J_RH]/5.0
+
+
+
+
+            # self.get_logger().info(f"cmd pos: {msg.position}")
             # msg.velocity=[self.joy.axes[J_LV],self.joy.axes[J_LH],self.joy.axes[J_RV]]
             
             # msg.yawspeed=self.joy.axes[J_RH]
             msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
             self.trajectory_setpoint_publisher.publish(msg)
-            # self.get_logger().info(f"cmd yawspeed: {msg.yawspeed} yaw: {msg.yaw}")
-            self.get_logger().info(f"cmd yaw: {msg.yaw}")
+            self.get_logger().info(f"cmd yawspeed: {msg.yawspeed} yaw: {msg.yaw}")
 
+            
+    
     
 
         # if self.offboard_setpoint_counter == 10:
