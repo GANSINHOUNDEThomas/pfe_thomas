@@ -125,8 +125,12 @@ cd \
 cp x500.sdf /root/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/x500
 
 
+### pré-requis Pour tester joy_interface.py, 
+pip uninstall numpy
+pip install numpy==1.21.0 opencv-python-headless Pillow rclpy
 
-
+## pour lancer joy_interface.py
+python3 src/px4-ros2-interface-lib/scripts/joy_interface.py
 #FIN
 
 
